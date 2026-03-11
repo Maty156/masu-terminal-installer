@@ -16,165 +16,135 @@ echo "██╔████╔██║███████║█████�
 echo "██║╚██╔╝██║██╔══██║╚════██║██║   ██║"
 echo "██║ ╚═╝ ██║██║  ██║███████║╚██████╔╝"
 echo "╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝"
-echo -e "$CYAN MASU Terminal Installer v3 $RESET"
+echo -e "$CYAN MASU Terminal Installer v4 $RESET"
 echo ""
 
-print_ok() {
-echo -e "$GREEN[ OK ]$RESET $1"
+# Detect OS
+detect_os() {
+    if [ -n "$PREFIX" ] && [[ "$PREFIX" == *"com.termux"* ]]; then
+        OS="termux"
+    elif [ -f /etc/arch-release ]; then
+        OS="arch"
+    elif [ -f /etc/debian_version ]; then
+        OS="debian"
+    elif [ -f /etc/fedora-release ]; then
+        OS="fedora"
+    elif [ -f /etc/SuSE-release ] || [ -f /etc/os-release ] && grep -qi "suse" /etc/os-release; then
+        OS="opensuse"
+    else
+        OS="unknown"
+    fi
 }
 
-print_run() {
-echo -e "$CYAN[ RUN ]$RESET $1"
-}
+echo -e "${YELLOW}[ RUN ] Detecting system...${RESET}"
+detect_os
+echo -e "${GREEN}[ OK ] Detected: $OS${RESET}"
 
-print_fail() {
-echo -e "$RED[ FAIL ]$RESET $1"
-}
+# ===============================
+# TERMUX INSTALLATION
+# ===============================
 
-sleep 1
+if [ "$OS" = "termux" ]; then
 
-print_run "Detecting system..."
+    echo -e "${YELLOW}[ RUN ] Updating packages...${RESET}"
+    pkg update -y && pkg upgrade -y
 
-if [[ "$PREFIX" == *"com.termux"* ]]; then
-    distro="termux"
+    echo -e "${YELLOW}[ RUN ] Installing dependencies...${RESET}"
+    pkg install zsh git curl cmatrix -y
 
-elif [ -f /etc/debian_version ]; then
-    distro="debian"
+    echo -e "${GREEN}[ OK ] Packages installed${RESET}"
 
-elif [ -f /etc/arch-release ]; then
-    distro="arch"
+    # Make ZSH default shell
+    if ! grep -q "exec zsh" ~/.bashrc; then
+        echo 'exec zsh' >> ~/.bashrc
+        echo -e "${GREEN}[ OK ] Zsh set as default shell${RESET}"
+    fi
 
-elif [ -f /etc/fedora-release ]; then
-    distro="fedora"
+    echo ""
+    read -p "Enable Matrix animation? (y/n): " matrix
 
-elif [ -f /etc/SuSE-release ]; then
-    distro="opensuse"
+    if [[ "$matrix" == "y" ]]; then
+        echo -e "${YELLOW}[ RUN ] Launching Matrix...${RESET}"
+        cmatrix
+    fi
 
-else
-    distro="unknown"
 fi
 
-print_ok "Detected: $distro"
+# ===============================
+# ARCH INSTALLATION
+# ===============================
 
-sleep 1
+if [ "$OS" = "arch" ]; then
 
-print_run "Installing dependencies..."
+    echo -e "${YELLOW}[ RUN ] Installing packages...${RESET}"
+    sudo pacman -S --noconfirm zsh git curl cmatrix
 
-if [ "$distro" = "termux" ]; then
+    echo -e "${GREEN}[ OK ] Packages installed${RESET}"
 
-    pkg update -y
-    pkg install -y zsh git curl
-
-elif [ "$distro" = "debian" ]; then
-
-    sudo apt update
-    sudo apt install -y zsh git curl
-
-elif [ "$distro" = "arch" ]; then
-
-    sudo pacman -S --noconfirm zsh git curl
-
-elif [ "$distro" = "fedora" ]; then
-
-    sudo dnf install -y zsh git curl
-
-elif [ "$distro" = "opensuse" ]; then
-
-    sudo zypper install -y zsh git curl
-
-else
-    print_fail "Unsupported system"
-    exit
-fi
-
-print_ok "Dependencies installed"
-
-sleep 1
-
-print_run "Backing up existing .zshrc..."
-
-if [ -f ~/.zshrc ]; then
-    cp ~/.zshrc ~/.zshrc.bak
-    print_ok ".zshrc backup created"
-else
-    print_ok "No existing .zshrc found"
-fi
-
-sleep 1
-
-print_run "Installing Oh My Zsh..."
-
-RUNZSH=no CHSH=no sh -c \
-"$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
-
-print_ok "Oh My Zsh installed"
-
-sleep 1
-
-print_run "Installing Powerlevel10k..."
-
-git clone --depth=1 https://github.com/romkatv/powerlevel10k.git \
-${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
-
-print_ok "Powerlevel10k installed"
-
-sed -i 's/ZSH_THEME=".*"/ZSH_THEME="powerlevel10k\/powerlevel10k"/' ~/.zshrc
-
-print_ok "Theme configured"
-
-sleep 1
-
-print_run "Installing plugins..."
-
-git clone https://github.com/zsh-users/zsh-autosuggestions \
-${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
-
-git clone https://github.com/zsh-users/zsh-syntax-highlighting \
-${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
-
-print_ok "Plugins installed"
-
-sed -i 's/plugins=(git)/plugins=(git zsh-autosuggestions zsh-syntax-highlighting)/' ~/.zshrc
-
-print_ok "Plugins enabled"
-
-sleep 1
-
-if [ "$distro" = "termux" ]; then
-    echo "exec zsh" >> ~/.bashrc
-    print_ok "Zsh enabled for Termux"
-else
+    echo -e "${YELLOW}[ RUN ] Changing default shell...${RESET}"
     chsh -s $(which zsh)
-    print_ok "Default shell changed to Zsh"
+
+    echo -e "${GREEN}[ OK ] Zsh enabled${RESET}"
+
+fi
+
+# ===============================
+# DEBIAN / UBUNTU / KALI
+# ===============================
+
+if [ "$OS" = "debian" ]; then
+
+    echo -e "${YELLOW}[ RUN ] Installing packages...${RESET}"
+    sudo apt update
+    sudo apt install zsh git curl cmatrix -y
+
+    echo -e "${GREEN}[ OK ] Packages installed${RESET}"
+
+    echo -e "${YELLOW}[ RUN ] Changing default shell...${RESET}"
+    chsh -s $(which zsh)
+
+    echo -e "${GREEN}[ OK ] Zsh enabled${RESET}"
+
+fi
+
+# ===============================
+# FEDORA
+# ===============================
+
+if [ "$OS" = "fedora" ]; then
+
+    echo -e "${YELLOW}[ RUN ] Installing packages...${RESET}"
+    sudo dnf install zsh git curl cmatrix -y
+
+    echo -e "${GREEN}[ OK ] Packages installed${RESET}"
+
+    echo -e "${YELLOW}[ RUN ] Changing default shell...${RESET}"
+    chsh -s $(which zsh)
+
+    echo -e "${GREEN}[ OK ] Zsh enabled${RESET}"
+
+fi
+
+# ===============================
+# OPENSUSE
+# ===============================
+
+if [ "$OS" = "opensuse" ]; then
+
+    echo -e "${YELLOW}[ RUN ] Installing packages...${RESET}"
+    sudo zypper install zsh git curl cmatrix -y
+
+    echo -e "${GREEN}[ OK ] Packages installed${RESET}"
+
+    echo -e "${YELLOW}[ RUN ] Changing default shell...${RESET}"
+    chsh -s $(which zsh)
+
+    echo -e "${GREEN}[ OK ] Zsh enabled${RESET}"
+
 fi
 
 echo ""
-
-read -p "Enable Matrix animation? (y/n): " matrix
-
-if [ "$matrix" = "y" ]; then
-
-print_run "Installing cmatrix..."
-
-if [ "$distro" = "termux" ]; then
-pkg install cmatrix -y
-
-elif [ "$distro" = "debian" ]; then
-sudo apt install cmatrix -y
-
-elif [ "$distro" = "arch" ]; then
-sudo pacman -S cmatrix --noconfirm
-
-fi
-
-print_ok "Launching Matrix..."
-
-cmatrix -b
-
-fi
-
-echo ""
-echo -e "$GREEN Installation Completed! $RESET"
+echo -e "${GREEN}Installation Completed!${RESET}"
 echo ""
 echo "Restart your terminal or run:"
 echo ""
