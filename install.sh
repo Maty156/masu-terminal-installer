@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# MASU Terminal Installer v5.1
+# MASU Terminal Installer v6 (Safe Edition)
 
 GREEN="\e[32m"
 RED="\e[31m"
@@ -17,9 +17,10 @@ echo "██╔████╔██║███████║█████�
 echo "██║╚██╔╝██║██╔══██║╚════██║██║   ██║"
 echo "██║ ╚═╝ ██║██║  ██║███████║╚██████╔╝"
 echo "╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝"
-echo -e "$CYAN MASU Terminal Installer v5.1 $RESET"
+echo -e "$CYAN MASU Terminal Installer v6 $RESET"
 echo ""
 
+# Detect OS
 detect_os() {
     if [ -n "$PREFIX" ] && [[ "$PREFIX" == *"com.termux"* ]]; then
         OS="termux"
@@ -40,6 +41,7 @@ echo -e "${YELLOW}[ RUN ] Detecting system...${RESET}"
 detect_os
 echo -e "${GREEN}[ OK ] Detected: $OS${RESET}"
 
+# Install dependencies
 install_packages() {
 
     if [ "$OS" = "termux" ]; then
@@ -69,6 +71,14 @@ echo -e "${YELLOW}[ RUN ] Installing dependencies...${RESET}"
 install_packages
 echo -e "${GREEN}[ OK ] Dependencies installed${RESET}"
 
+# Backup existing zsh config
+if [ -f ~/.zshrc ]; then
+    echo -e "${YELLOW}[ RUN ] Backing up existing .zshrc${RESET}"
+    cp ~/.zshrc ~/.zshrc.backup
+    echo -e "${GREEN}[ OK ] Backup saved as ~/.zshrc.backup${RESET}"
+fi
+
+# Install Oh My Zsh
 echo -e "${YELLOW}[ RUN ] Installing Oh My Zsh...${RESET}"
 
 RUNZSH=no CHSH=no sh -c \
@@ -76,33 +86,44 @@ RUNZSH=no CHSH=no sh -c \
 
 echo -e "${GREEN}[ OK ] Oh My Zsh installed${RESET}"
 
+# Install Powerlevel10k
 echo -e "${YELLOW}[ RUN ] Installing Powerlevel10k...${RESET}"
 
-if [ ! -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k" ]; then
-git clone --depth=1 https://github.com/romkatv/powerlevel10k.git \
-${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
-fi
+THEME_DIR="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k"
 
-sed -i 's/ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' ~/.zshrc
+if [ ! -d "$THEME_DIR" ]; then
+    git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "$THEME_DIR"
+fi
 
 echo -e "${GREEN}[ OK ] Powerlevel10k installed${RESET}"
 
+# Install plugins
 echo -e "${YELLOW}[ RUN ] Installing Zsh plugins...${RESET}"
 
-if [ ! -d "${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions" ]; then
-git clone https://github.com/zsh-users/zsh-autosuggestions \
-${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
+AUTO_DIR="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-autosuggestions"
+SYNTAX_DIR="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting"
+
+if [ ! -d "$AUTO_DIR" ]; then
+    git clone https://github.com/zsh-users/zsh-autosuggestions "$AUTO_DIR"
 fi
 
-if [ ! -d "${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting" ]; then
-git clone https://github.com/zsh-users/zsh-syntax-highlighting \
-${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
+if [ ! -d "$SYNTAX_DIR" ]; then
+    git clone https://github.com/zsh-users/zsh-syntax-highlighting "$SYNTAX_DIR"
 fi
-
-sed -i 's/plugins=(git)/plugins=(git zsh-autosuggestions zsh-syntax-highlighting)/g' ~/.zshrc
 
 echo -e "${GREEN}[ OK ] Plugins installed${RESET}"
 
+# Configure theme safely
+if grep -q "ZSH_THEME=" ~/.zshrc; then
+    sed -i 's/ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' ~/.zshrc
+fi
+
+# Enable plugins safely
+if grep -q "plugins=(" ~/.zshrc; then
+    sed -i 's/plugins=(.*/plugins=(git zsh-autosuggestions zsh-syntax-highlighting)/' ~/.zshrc
+fi
+
+# Set default shell
 echo -e "${YELLOW}[ RUN ] Setting default shell...${RESET}"
 
 if [ "$OS" = "termux" ]; then
@@ -121,7 +142,7 @@ echo ""
 read -p "Enable Matrix animation? (y/n): " matrix
 
 if [[ "$matrix" == "y" ]]; then
-    echo -e "${YELLOW}[ RUN ] Matrix demo for 5 seconds...${RESET}"
+    echo -e "${YELLOW}[ RUN ] Matrix demo (5 seconds)...${RESET}"
     timeout 5 cmatrix
 fi
 
