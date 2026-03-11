@@ -242,17 +242,32 @@ else
     echo 'plugins=(git zsh-autosuggestions zsh-syntax-highlighting zsh-history-substring-search)' >> ~/.zshrc
 fi
 
-# Add P10k instant prompt (speeds up startup)
-P10K_INSTANT='# Enable Powerlevel10k instant prompt
+# Add p10k wizard trigger at the BOTTOM of .zshrc
+# This sources .p10k.zsh if it exists, or launches the wizard if it doesn't
+if ! grep -q "p10k configure" ~/.zshrc && ! grep -q "\.p10k\.zsh" ~/.zshrc; then
+    cat >> ~/.zshrc << 'ZSHEOF'
+
+# ─── Powerlevel10k ─────────────────────────────────────────
+# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
+[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
+# If .p10k.zsh doesn't exist yet, run the wizard automatically
+[[ -f ~/.p10k.zsh ]] || ( [[ "$TERM_PROGRAM" != "vscode" ]] && p10k configure )
+ZSHEOF
+    success "Added Powerlevel10k wizard trigger to .zshrc"
+fi
+
+# Add P10k instant prompt — MUST be at the very top of .zshrc
+# Only add after theme/plugins are already in the file
+P10K_INSTANT='# Enable Powerlevel10k instant prompt. Keep at top of ~/.zshrc.
 if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
   source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
 fi'
 
 if ! grep -q "p10k-instant-prompt" ~/.zshrc; then
-    # Prepend to top of file
     TMP=$(mktemp)
     { echo "$P10K_INSTANT"; echo ""; cat ~/.zshrc; } > "$TMP"
     mv "$TMP" ~/.zshrc
+    success "Added Powerlevel10k instant prompt to top of .zshrc"
 fi
 
 # Add useful aliases for hacking / dev workflow
@@ -260,11 +275,10 @@ ALIASES_BLOCK='
 # ─── MASU Aliases ──────────────────────────
 alias ll="ls -lah --color=auto"
 alias la="ls -A --color=auto"
-alias update="sudo pacman -Syu"          # Change for your distro
+alias update="sudo pacman -Syu"
 alias ports="ss -tulnp"
 alias myip="curl -s https://ipinfo.io/ip"
 alias cls="clear"
-alias zshconf="$EDITOR ~/.zshrc"
 alias reload="source ~/.zshrc"
 # ───────────────────────────────────────────'
 
