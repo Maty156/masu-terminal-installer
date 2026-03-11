@@ -136,22 +136,7 @@ else
     info "All required dependencies are present — skipping install"
 fi
 
-# ─── Optional: cmatrix ─────────────────────────────────────
-HAVE_CMATRIX=false
-if command -v cmatrix &>/dev/null; then
-    HAVE_CMATRIX=true
-elif [[ "$OS" != "termux" ]]; then
-    echo ""
-    read -rp "  Install cmatrix for Matrix animation? (y/n): " install_cmatrix
-    if [[ "$install_cmatrix" == "y" ]]; then
-        case "$OS" in
-            arch)     sudo pacman -S --noconfirm cmatrix && HAVE_CMATRIX=true ;;
-            debian)   sudo apt-get install -y cmatrix && HAVE_CMATRIX=true ;;
-            fedora)   sudo dnf install -y cmatrix && HAVE_CMATRIX=true ;;
-            opensuse) sudo zypper install -y cmatrix && HAVE_CMATRIX=true ;;
-        esac
-    fi
-fi
+
 
 # ─── Backup .zshrc ─────────────────────────────────────────
 step "Checking Existing Configuration"
@@ -311,23 +296,101 @@ else
     fi
 fi
 
-# ─── Nerd Fonts Reminder ───────────────────────────────────
-step "Nerd Font Notice"
-echo -e "  ${YELLOW}Powerlevel10k requires a Nerd Font for icons to display correctly.${RESET}"
-echo -e "  Recommended: ${BOLD}MesloLGS NF${RESET} or any font from https://www.nerdfonts.com"
-echo -e "  On Arch/BlackArch: ${CYAN}sudo pacman -S ttf-meslo-nerd${RESET}"
-echo -e "  After installing the font, set it in your terminal emulator settings."
+# ─── Nerd Font Auto-Install ────────────────────────────────
+step "Installing Nerd Font (MesloLGS NF)"
 
-# ─── Matrix Demo ───────────────────────────────────────────
-echo ""
-if [[ "$HAVE_CMATRIX" = true ]]; then
-    read -rp "  Enable Matrix animation demo? (y/n): " matrix
-    if [[ "$matrix" == "y" ]]; then
-        echo -e "${GREEN}Press Ctrl+C to stop${RESET}"
-        sleep 1
-        timeout 8 cmatrix -s -b -C green || true
+FONT_INSTALLED=false
+
+install_nerd_font_manual() {
+    # Download MesloLGS NF directly from the Powerlevel10k recommended fonts
+    info "Downloading MesloLGS NF fonts..."
+    local FONT_DIR="$HOME/.local/share/fonts/MesloLGS"
+    mkdir -p "$FONT_DIR"
+
+    local BASE_URL="https://github.com/romkatv/powerlevel10k-media/raw/master"
+    local FONTS=(
+        "MesloLGS%20NF%20Regular.ttf"
+        "MesloLGS%20NF%20Bold.ttf"
+        "MesloLGS%20NF%20Italic.ttf"
+        "MesloLGS%20NF%20Bold%20Italic.ttf"
+    )
+
+    local ALL_OK=true
+    for font in "${FONTS[@]}"; do
+        local fname="${font//%20/ }"
+        if curl -fsSL "$BASE_URL/$font" -o "$FONT_DIR/$fname" 2>/dev/null; then
+            success "Downloaded: $fname"
+        else
+            warn "Failed to download: $fname"
+            ALL_OK=false
+        fi
+    done
+
+    if [[ "$ALL_OK" = true ]]; then
+        # Refresh font cache
+        if command -v fc-cache &>/dev/null; then
+            fc-cache -fv "$FONT_DIR" &>/dev/null
+            success "Font cache refreshed"
+        fi
+        FONT_INSTALLED=true
+    else
+        warn "Some fonts failed to download — check your internet connection"
     fi
+}
+
+case "$OS" in
+    arch)
+        if sudo pacman -S --noconfirm --needed ttf-meslo-nerd 2>/dev/null; then
+            success "MesloLGS Nerd Font installed via pacman"
+            FONT_INSTALLED=true
+        else
+            warn "pacman install failed — trying manual download..."
+            install_nerd_font_manual
+        fi
+        ;;
+    debian)
+        # Try apt first (available on newer Ubuntu/Kali)
+        if sudo apt-get install -y fonts-nerd-font-meslo 2>/dev/null; then
+            success "Nerd Font installed via apt"
+            FONT_INSTALLED=true
+        else
+            warn "apt font not available — trying manual download..."
+            install_nerd_font_manual
+        fi
+        ;;
+    fedora)
+        if sudo dnf install -y levien-inconsolata-fonts 2>/dev/null; then
+            install_nerd_font_manual  # fedora has limited nerd fonts, supplement manually
+        else
+            install_nerd_font_manual
+        fi
+        ;;
+    opensuse)
+        install_nerd_font_manual
+        ;;
+    termux)
+        info "Termux: downloading MesloLGS NF font for Termux styling..."
+        mkdir -p ~/.termux
+        curl -fsSL \
+            "https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Regular.ttf" \
+            -o ~/.termux/font.ttf 2>/dev/null && \
+            success "Font set for Termux (~/.termux/font.ttf)" && \
+            FONT_INSTALLED=true || \
+            warn "Font download failed for Termux"
+        ;;
+esac
+
+if [[ "$FONT_INSTALLED" = true ]]; then
+    echo ""
+    echo -e "  ${YELLOW}⚠ ACTION REQUIRED:${RESET} Font is installed on your system."
+    echo -e "  You must ${BOLD}set MesloLGS NF as your terminal's font${RESET} in its settings."
+    echo -e "  (e.g. Konsole → Settings → Edit Profile → Appearance → Font)"
+else
+    echo -e "  ${YELLOW}Font could not be installed automatically.${RESET}"
+    echo -e "  Manually download from: ${CYAN}https://www.nerdfonts.com/font-downloads${RESET}"
+    echo -e "  Then set it in your terminal emulator settings."
 fi
+
 
 # ─── Done ──────────────────────────────────────────────────
 echo ""
@@ -338,15 +401,18 @@ echo ""
 echo -e "  ${CYAN}What's installed:${RESET}"
 echo -e "    • ZSH + Oh My Zsh"
 echo -e "    • Powerlevel10k theme"
+echo -e "    • MesloLGS Nerd Font         ${GREEN}(auto-installed!)${RESET}"
 echo -e "    • zsh-autosuggestions"
 echo -e "    • zsh-syntax-highlighting"
-echo -e "    • zsh-history-substring-search  ${GREEN}(new!)${RESET}"
-echo -e "    • MASU productivity aliases      ${GREEN}(new!)${RESET}"
+echo -e "    • zsh-history-substring-search"
+echo -e "    • MASU productivity aliases"
 echo ""
-echo -e "  ${YELLOW}Next steps:${RESET}"
-echo -e "    1. Install a Nerd Font in your terminal"
-echo -e "    2. Run: ${BOLD}zsh${RESET}"
-echo -e "    3. Follow the Powerlevel10k setup wizard"
+echo -e "  ${YELLOW}Remember:${RESET} Set ${BOLD}MesloLGS NF${RESET} as your terminal font to see icons."
 echo ""
 echo -e "  ${MAGENTA}MASU Cyber Learning Project — Stay Sharp!${RESET}"
 echo ""
+
+# ─── Launch ZSH ────────────────────────────────────────────
+echo -e "${GREEN}${BOLD}Launching ZSH now...${RESET}"
+sleep 1
+exec zsh
