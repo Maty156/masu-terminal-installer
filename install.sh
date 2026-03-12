@@ -251,29 +251,15 @@ else
     echo 'plugins=(git zsh-autosuggestions zsh-syntax-highlighting zsh-history-substring-search)' >> ~/.zshrc
 fi
 
-# Add p10k wizard trigger at the BOTTOM of .zshrc
+# Add p10k config source at the BOTTOM of .zshrc
 if ! grep -q "p10k configure" ~/.zshrc && ! grep -q "\.p10k\.zsh" ~/.zshrc; then
     cat >> ~/.zshrc << 'ZSHEOF'
 
 # ─── Powerlevel10k ─────────────────────────────────────────
-# Source config if it exists
+# To reconfigure, run: p10k configure
 [[ -f ~/.p10k.zsh ]] && source ~/.p10k.zsh
-
-# Auto-launch wizard on first run using precmd hook
-# precmd fires once the shell is fully ready with a proper TTY
-if [[ ! -f ~/.p10k.zsh ]]; then
-    _masu_p10k_setup() {
-        # Remove this hook so it only runs once
-        add-zsh-hook -d precmd _masu_p10k_setup
-        unfunction _masu_p10k_setup
-        # Run the wizard now that the shell is fully ready
-        p10k configure
-    }
-    autoload -Uz add-zsh-hook
-    add-zsh-hook precmd _masu_p10k_setup
-fi
 ZSHEOF
-    success "Added Powerlevel10k wizard trigger to .zshrc"
+    success "Added Powerlevel10k config source to .zshrc"
 fi
 
 
@@ -445,6 +431,15 @@ echo ""
 echo -e "${GREEN}${BOLD}Launching ZSH now...${RESET}"
 sleep 1
 
-# -i forces interactive mode so .zshrc is always loaded
-# This ensures p10k wizard triggers correctly on Termux and Linux
-exec zsh -i
+# Fix permissions on powerlevel10k folder
+chmod -R 755 ~/.oh-my-zsh/custom/themes/powerlevel10k 2>/dev/null || true
+
+# Launch zsh and immediately source the theme then run the wizard if needed
+exec zsh -i -c '
+    source ~/.oh-my-zsh/custom/themes/powerlevel10k/powerlevel10k.zsh-theme
+    if [[ ! -f ~/.p10k.zsh ]]; then
+        p10k configure
+    fi
+    # After wizard completes, drop into interactive shell
+    exec zsh -i
+'
