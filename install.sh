@@ -106,6 +106,34 @@ fi
 
 success "Detected: ${BOLD}$DISTRO_LABEL${RESET}"
 
+# ─── Internet Check ────────────────────────────────────────
+step "Checking Internet Connection"
+
+check_internet() {
+    local hosts=("github.com" "google.com" "1.1.1.1")
+    for host in "${hosts[@]}"; do
+        if ping -c1 -W2 "$host" &>/dev/null 2>&1; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+if check_internet; then
+    success "Internet connection OK"
+else
+    error "No internet connection detected."
+    echo ""
+    echo -e "  ${YELLOW}This script needs internet to download:${RESET}"
+    echo -e "    • Oh My Zsh"
+    echo -e "    • Powerlevel10k theme"
+    echo -e "    • ZSH plugins"
+    echo -e "    • Nerd Font"
+    echo ""
+    echo -e "  ${YELLOW}Check your connection and try again.${RESET}"
+    exit 1
+fi
+
 # ─── Dependency Check ──────────────────────────────────────
 step "Checking Dependencies"
 
