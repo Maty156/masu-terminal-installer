@@ -252,18 +252,21 @@ if ! grep -q "p10k configure" ~/.zshrc && ! grep -q "\.p10k\.zsh" ~/.zshrc; then
     cat >> ~/.zshrc << 'ZSHEOF'
 
 # ─── Powerlevel10k ─────────────────────────────────────────
-# Source p10k config if it exists
+# Source config if it exists
 [[ -f ~/.p10k.zsh ]] && source ~/.p10k.zsh
 
-# Auto-launch wizard on first run
+# Auto-launch wizard on first run using precmd hook
+# precmd fires once the shell is fully ready with a proper TTY
 if [[ ! -f ~/.p10k.zsh ]]; then
-    # Source theme directly by path — guarantees p10k command exists
-    _P10K_THEME="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k/powerlevel10k.zsh-theme"
-    [[ -f "$_P10K_THEME" ]] && source "$_P10K_THEME"
-    # Now p10k is defined — run the wizard
-    if command -v p10k &>/dev/null; then
-        [[ "$TERM_PROGRAM" != "vscode" ]] && p10k configure
-    fi
+    _masu_p10k_setup() {
+        # Remove this hook so it only runs once
+        add-zsh-hook -d precmd _masu_p10k_setup
+        unfunction _masu_p10k_setup
+        # Run the wizard now that the shell is fully ready
+        p10k configure
+    }
+    autoload -Uz add-zsh-hook
+    add-zsh-hook precmd _masu_p10k_setup
 fi
 ZSHEOF
     success "Added Powerlevel10k wizard trigger to .zshrc"
