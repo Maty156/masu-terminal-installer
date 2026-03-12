@@ -277,7 +277,7 @@ success ".zshrc configured"
 # ─── Set Default Shell ─────────────────────────────────────
 step "Setting Default Shell"
 
-ZSH_PATH=$(which zsh)
+ZSH_PATH=$(command -v zsh)
 
 if [[ "$OS" = "termux" ]]; then
     if ! grep -q "exec zsh" ~/.bashrc 2>/dev/null; then
@@ -287,10 +287,12 @@ if [[ "$OS" = "termux" ]]; then
         info "Termux already launches zsh"
     fi
 else
-    CURRENT_SHELL=$(getent passwd "$USER" | cut -d: -f7)
+    # getent is not available on Termux, only run on real Linux
+    CURRENT_SHELL=$(getent passwd "$USER" 2>/dev/null | cut -d: -f7 || echo "unknown")
     if [[ "$CURRENT_SHELL" != "$ZSH_PATH" ]]; then
-        chsh -s "$ZSH_PATH"
-        success "Default shell set to zsh ($ZSH_PATH)"
+        chsh -s "$ZSH_PATH" 2>/dev/null && \
+            success "Default shell set to zsh ($ZSH_PATH)" || \
+            warn "Could not set default shell automatically — run: chsh -s $ZSH_PATH"
     else
         info "zsh is already the default shell"
     fi
@@ -382,9 +384,14 @@ esac
 
 if [[ "$FONT_INSTALLED" = true ]]; then
     echo ""
-    echo -e "  ${YELLOW}⚠ ACTION REQUIRED:${RESET} Font is installed on your system."
-    echo -e "  You must ${BOLD}set MesloLGS NF as your terminal's font${RESET} in its settings."
-    echo -e "  (e.g. Konsole → Settings → Edit Profile → Appearance → Font)"
+    if [[ "$OS" = "termux" ]]; then
+        echo -e "  ${GREEN}Font applied to Termux automatically.${RESET}"
+        echo -e "  Restart Termux for the font to take effect."
+    else
+        echo -e "  ${YELLOW}⚠ ACTION REQUIRED:${RESET} Font is installed on your system."
+        echo -e "  You must ${BOLD}set MesloLGS NF as your terminal's font${RESET} in its settings."
+        echo -e "  (e.g. Konsole → Settings → Edit Profile → Appearance → Font)"
+    fi
 else
     echo -e "  ${YELLOW}Font could not be installed automatically.${RESET}"
     echo -e "  Manually download from: ${CYAN}https://www.nerdfonts.com/font-downloads${RESET}"
