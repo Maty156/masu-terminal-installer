@@ -428,18 +428,32 @@ echo -e "  ${MAGENTA}MASU Cyber Learning Project — Stay Sharp!${RESET}"
 echo ""
 
 # ─── Launch ZSH ────────────────────────────────────────────
-echo -e "${GREEN}${BOLD}Launching ZSH now...${RESET}"
-sleep 1
 
 # Fix permissions on powerlevel10k folder
 chmod -R 755 ~/.oh-my-zsh/custom/themes/powerlevel10k 2>/dev/null || true
 
-# Launch zsh and immediately source the theme then run the wizard if needed
-exec zsh -i -c '
-    source ~/.oh-my-zsh/custom/themes/powerlevel10k/powerlevel10k.zsh-theme
-    if [[ ! -f ~/.p10k.zsh ]]; then
-        p10k configure
-    fi
-    # After wizard completes, drop into interactive shell
-    exec zsh -i
-'
+# Write a one-time setup file that zsh will execute on its first launch
+# ~/.zshenv is sourced by ALL zsh instances before anything else
+cat > ~/.masu_first_run.zsh << 'FIRSTRUN'
+# MASU first-run setup — auto-deleted after use
+rm -f ~/.masu_first_run.zsh
+
+# Remove this hook from .zshenv
+sed -i '/masu_first_run/d' ~/.zshenv 2>/dev/null
+
+# Source the theme to make p10k available
+source "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k/powerlevel10k.zsh-theme" 2>/dev/null
+
+# Run the wizard
+[[ ! -f ~/.p10k.zsh ]] && p10k configure
+FIRSTRUN
+
+# Hook it into .zshenv so it runs on next zsh start
+if ! grep -q "masu_first_run" ~/.zshenv 2>/dev/null; then
+    echo '[[ -f ~/.masu_first_run.zsh ]] && source ~/.masu_first_run.zsh' >> ~/.zshenv
+fi
+
+echo ""
+echo -e "${GREEN}${BOLD}Launching ZSH — Powerlevel10k wizard will start automatically...${RESET}"
+sleep 1
+exec zsh
