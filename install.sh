@@ -159,11 +159,31 @@ else
         sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" &
     spinner $! "Installing Oh My Zsh..."
     wait
+
+    # Verify Oh My Zsh actually installed correctly
+    if [[ ! -d ~/.oh-my-zsh ]]; then
+        error "Oh My Zsh installation failed — check your internet connection"
+        exit 1
+    fi
     success "Oh My Zsh installed"
 fi
 
-# Make sure .zshrc exists
-[[ ! -f ~/.zshrc ]] && cp ~/.oh-my-zsh/templates/zshrc.zsh-template ~/.zshrc
+# Make sure .zshrc exists — use template if available, create minimal one if not
+if [[ ! -f ~/.zshrc ]]; then
+    if [[ -f ~/.oh-my-zsh/templates/zshrc.zsh-template ]]; then
+        cp ~/.oh-my-zsh/templates/zshrc.zsh-template ~/.zshrc
+        success "Created .zshrc from template"
+    else
+        # Fallback: create a minimal working .zshrc manually
+        cat > ~/.zshrc << 'RCEOF'
+export ZSH="$HOME/.oh-my-zsh"
+ZSH_THEME="powerlevel10k/powerlevel10k"
+plugins=(git)
+source $ZSH/oh-my-zsh.sh
+RCEOF
+        success "Created minimal .zshrc fallback"
+    fi
+fi
 
 # ─── Powerlevel10k ─────────────────────────────────────────
 step "Installing Powerlevel10k Theme"
