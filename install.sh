@@ -228,15 +228,22 @@ else
 fi
 
 # Add p10k wizard trigger at the BOTTOM of .zshrc
-# This sources .p10k.zsh if it exists, or launches the wizard if it doesn't
 if ! grep -q "p10k configure" ~/.zshrc && ! grep -q "\.p10k\.zsh" ~/.zshrc; then
     cat >> ~/.zshrc << 'ZSHEOF'
 
 # ─── Powerlevel10k ─────────────────────────────────────────
-# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
+# Source p10k config if it exists
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
-# If .p10k.zsh doesn't exist yet, run the wizard automatically
-[[ -f ~/.p10k.zsh ]] || ( [[ "$TERM_PROGRAM" != "vscode" ]] && p10k configure )
+
+# Auto-launch wizard on first run if no config exists yet
+if [[ ! -f ~/.p10k.zsh ]]; then
+    # Find p10k binary — works on Linux and Termux
+    _P10K="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k/powerlevel10k.zsh-theme"
+    if [[ -f "$_P10K" ]]; then
+        source "$_P10K"
+        [[ "$TERM_PROGRAM" != "vscode" ]] && p10k configure
+    fi
+fi
 ZSHEOF
     success "Added Powerlevel10k wizard trigger to .zshrc"
 fi
