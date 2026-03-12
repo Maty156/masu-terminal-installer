@@ -237,6 +237,11 @@ install_plugin "zsh-history-substring-search" "https://github.com/zsh-users/zsh-
 # ─── Configure .zshrc ──────────────────────────────────────
 step "Configuring .zshrc"
 
+# Set ZSH path
+if ! grep -q "^export ZSH=" ~/.zshrc; then
+    echo 'export ZSH="$HOME/.oh-my-zsh"' >> ~/.zshrc
+fi
+
 # Set theme
 if grep -q "^ZSH_THEME=" ~/.zshrc; then
     sed -i 's|^ZSH_THEME=.*|ZSH_THEME="powerlevel10k/powerlevel10k"|' ~/.zshrc
@@ -244,39 +249,53 @@ else
     echo 'ZSH_THEME="powerlevel10k/powerlevel10k"' >> ~/.zshrc
 fi
 
-# Set plugins (handle multi-line safely)
+# Set plugins — write the full line cleanly, no multiline sed issues
 if grep -q "^plugins=(" ~/.zshrc; then
-    sed -i '/^plugins=(/,/^)/c\plugins=(git zsh-autosuggestions zsh-syntax-highlighting zsh-history-substring-search)' ~/.zshrc
-else
-    echo 'plugins=(git zsh-autosuggestions zsh-syntax-highlighting zsh-history-substring-search)' >> ~/.zshrc
+    # Remove the entire plugins=(...) block however many lines it spans
+    sed -i '/^plugins=(/,/)/d' ~/.zshrc
+fi
+# Write a clean single-line plugins entry
+echo 'plugins=(git zsh-autosuggestions zsh-syntax-highlighting zsh-history-substring-search)' >> ~/.zshrc
+
+# Make sure oh-my-zsh.sh is sourced
+if ! grep -q "source \$ZSH/oh-my-zsh.sh" ~/.zshrc; then
+    echo 'source $ZSH/oh-my-zsh.sh' >> ~/.zshrc
 fi
 
 # Add p10k config source at the BOTTOM of .zshrc
-if ! grep -q "p10k configure" ~/.zshrc && ! grep -q "\.p10k\.zsh" ~/.zshrc; then
+if ! grep -q "\.p10k\.zsh" ~/.zshrc; then
     cat >> ~/.zshrc << 'ZSHEOF'
 
 # ─── Powerlevel10k ─────────────────────────────────────────
-# To reconfigure, run: p10k configure
+# To reconfigure run: p10k configure
 [[ -f ~/.p10k.zsh ]] && source ~/.p10k.zsh
 ZSHEOF
     success "Added Powerlevel10k config source to .zshrc"
 fi
 
+# Add aliases — distro-aware update command
+if ! grep -q "MASU Aliases" ~/.zshrc; then
+    case "$OS" in
+        arch)     UPDATE_CMD="sudo pacman -Syu" ;;
+        debian)   UPDATE_CMD="sudo apt update && sudo apt upgrade" ;;
+        fedora)   UPDATE_CMD="sudo dnf upgrade" ;;
+        opensuse) UPDATE_CMD="sudo zypper update" ;;
+        termux)   UPDATE_CMD="pkg upgrade" ;;
+        *)        UPDATE_CMD="echo 'Update command not set for this distro'" ;;
+    esac
 
-# Add useful aliases for hacking / dev workflow
-ALIASES_BLOCK='
+    cat >> ~/.zshrc << ALIASEOF
+
 # ─── MASU Aliases ──────────────────────────
 alias ll="ls -lah --color=auto"
 alias la="ls -A --color=auto"
-alias update="sudo pacman -Syu"
+alias update="$UPDATE_CMD"
 alias ports="ss -tulnp"
 alias myip="curl -s https://ipinfo.io/ip"
 alias cls="clear"
 alias reload="source ~/.zshrc"
-# ───────────────────────────────────────────'
-
-if ! grep -q "MASU Aliases" ~/.zshrc; then
-    echo "$ALIASES_BLOCK" >> ~/.zshrc
+# ───────────────────────────────────────────
+ALIASEOF
     success "Added MASU aliases to .zshrc"
 fi
 
@@ -407,6 +426,26 @@ else
 fi
 
 
+# ─── First Run Setup ───────────────────────────────────────
+
+# Fix permissions on powerlevel10k and plugins
+chmod -R 755 ~/.oh-my-zsh/custom/themes/powerlevel10k 2>/dev/null || true
+chmod -R 755 ~/.oh-my-zsh/custom/plugins/ 2>/dev/null || true
+
+# Write a one-time file that runs the p10k wizard on first zsh open
+cat > ~/.masu_first_run.zsh << 'FIRSTRUN'
+# MASU first-run — auto-deleted after use
+rm -f ~/.masu_first_run.zsh
+sed -i '/masu_first_run/d' ~/.zshenv 2>/dev/null
+# Run the wizard
+[[ ! -f ~/.p10k.zsh ]] && p10k configure
+FIRSTRUN
+
+# Hook into .zshenv — sourced by ALL zsh instances on ALL distros including Termux
+if ! grep -q "masu_first_run" ~/.zshenv 2>/dev/null; then
+    echo '[[ -f ~/.masu_first_run.zsh ]] && source ~/.masu_first_run.zsh' >> ~/.zshenv
+fi
+
 # ─── Done ──────────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}${BOLD}╔══════════════════════════════════════╗"
@@ -424,36 +463,7 @@ echo -e "    • MASU productivity aliases"
 echo ""
 echo -e "  ${YELLOW}Remember:${RESET} Set ${BOLD}MesloLGS NF${RESET} as your terminal font to see icons."
 echo ""
+echo -e "  ${GREEN}${BOLD}✓ Open a new terminal — Powerlevel10k wizard will start automatically!${RESET}"
+echo ""
 echo -e "  ${MAGENTA}MASU Cyber Learning Project — Stay Sharp!${RESET}"
 echo ""
-
-# ─── Launch ZSH ────────────────────────────────────────────
-
-# Fix permissions on powerlevel10k folder
-chmod -R 755 ~/.oh-my-zsh/custom/themes/powerlevel10k 2>/dev/null || true
-
-# Write a one-time setup file that zsh will execute on its first launch
-# ~/.zshenv is sourced by ALL zsh instances before anything else
-cat > ~/.masu_first_run.zsh << 'FIRSTRUN'
-# MASU first-run setup — auto-deleted after use
-rm -f ~/.masu_first_run.zsh
-
-# Remove this hook from .zshenv
-sed -i '/masu_first_run/d' ~/.zshenv 2>/dev/null
-
-# Source the theme to make p10k available
-source "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k/powerlevel10k.zsh-theme" 2>/dev/null
-
-# Run the wizard
-[[ ! -f ~/.p10k.zsh ]] && p10k configure
-FIRSTRUN
-
-# Hook it into .zshenv so it runs on next zsh start
-if ! grep -q "masu_first_run" ~/.zshenv 2>/dev/null; then
-    echo '[[ -f ~/.masu_first_run.zsh ]] && source ~/.masu_first_run.zsh' >> ~/.zshenv
-fi
-
-echo ""
-echo -e "${GREEN}${BOLD}Launching ZSH — Powerlevel10k wizard will start automatically...${RESET}"
-sleep 1
-exec zsh
