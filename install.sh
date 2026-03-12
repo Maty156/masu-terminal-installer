@@ -146,3 +146,5 @@ echo -e "${GREEN}Installation Completed!${RESET}"
 echo ""
 echo "Restart your terminal or run:"
 echo "zsh"
+
+echo '[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh' >> ~/.zshrc
