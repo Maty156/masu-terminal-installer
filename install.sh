@@ -232,18 +232,11 @@ if ! grep -q "p10k configure" ~/.zshrc && ! grep -q "\.p10k\.zsh" ~/.zshrc; then
     cat >> ~/.zshrc << 'ZSHEOF'
 
 # ─── Powerlevel10k ─────────────────────────────────────────
-# Source p10k config if it exists
-[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
+# Source config if it exists
+[[ -f ~/.p10k.zsh ]] && source ~/.p10k.zsh
 
-# Auto-launch wizard on first run if no config exists yet
-if [[ ! -f ~/.p10k.zsh ]]; then
-    # Find p10k binary — works on Linux and Termux
-    _P10K="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k/powerlevel10k.zsh-theme"
-    if [[ -f "$_P10K" ]]; then
-        source "$_P10K"
-        [[ "$TERM_PROGRAM" != "vscode" ]] && p10k configure
-    fi
-fi
+# Launch wizard automatically on first run (no config yet)
+[[ ! -f ~/.p10k.zsh && "$TERM_PROGRAM" != "vscode" ]] && p10k configure
 ZSHEOF
     success "Added Powerlevel10k wizard trigger to .zshrc"
 fi
@@ -429,4 +422,7 @@ echo ""
 # ─── Launch ZSH ────────────────────────────────────────────
 echo -e "${GREEN}${BOLD}Launching ZSH now...${RESET}"
 sleep 1
-exec zsh
+
+# -i forces interactive mode so .zshrc is always loaded
+# This ensures p10k wizard triggers correctly on Termux and Linux
+exec zsh -i
