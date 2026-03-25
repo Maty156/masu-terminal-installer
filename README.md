@@ -108,7 +108,7 @@ These tools improve terminal productivity by providing:
 ### Arch Linux
 
 <p align="center">
-  <img src="screenshots/arch.png" width="700">
+  <img src="/screenshots/screenshot-20260325-192838.png" width="700">
 </p>
 
 More screenshots from other systems will be added soon.
