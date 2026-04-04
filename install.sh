@@ -540,9 +540,17 @@ fi
 
 # Setup Fastfetch config
 mkdir -p ~/.config/fastfetch
-if [[ -f "$SCRIPT_DIR/configs/fastfetch/config.jsonc" ]]; then
-    cp "$SCRIPT_DIR/configs/fastfetch/config.jsonc" ~/.config/fastfetch/config.jsonc
-    success "MASU Fetch config applied"
+if [[ "$OS" = "termux" ]]; then
+    FETCH_FILE="mobile-config.jsonc"
+else
+    FETCH_FILE="pc-config.jsonc"
+fi
+
+if [[ -f "$SCRIPT_DIR/configs/fastfetch/$FETCH_FILE" ]]; then
+    cp "$SCRIPT_DIR/configs/fastfetch/$FETCH_FILE" ~/.config/fastfetch/config.jsonc
+    success "MASU Fetch config ($FETCH_FILE) applied"
+else
+    warn "Fastfetch config $FETCH_FILE not found in $SCRIPT_DIR/configs/fastfetch/"
 fi
 
 step "Applying Theme: $CHOSEN_THEME"
