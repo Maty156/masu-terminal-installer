@@ -15,16 +15,11 @@ The script automatically detects your operating system and installs everything r
 
 # Features
 
-✔ Automatic Linux distribution detection
-✔ Installs ZSH and required dependencies
-✔ Installs Oh My Zsh framework
-✔ Installs Powerlevel10k theme
-✔ Installs ZSH Autosuggestions plugin
-✔ Installs ZSH Syntax Highlighting plugin
-✔ Optional Matrix animation
-✔ Backup of existing `.zshrc` configuration
+✔ **MASU Cyber Upgrade (v8)** — Parallel cloning + Theme menu
 ✔ **Zero-Config Termux Support** — automatic mobile-optimized theme
 ✔ **Marker-based Configuration** — safe, re-runnable `.zshrc` updates
+✔ **Integrated FZF** — fuzzy history search and navigation
+✔ **Custom Fastfetch** — lightweight, compact MASU-themed info
 ✔ **Termux Storage Integration** — automatic setup prompt
 ✔ Works on Linux and Termux
 
@@ -126,8 +121,11 @@ masu-terminal-installer
 ├── install.sh
 ├── README.md
 ├── configs
-│   └── zsh
-│       └── p10k-termux.zsh   # Zero-Config Mobile Theme
+│   ├── zsh
+│   │   ├── p10k-termux.zsh  # Minimal Theme
+│   │   └── p10k-cyber.zsh   # Cyber Theme
+│   └── fastfetch
+│       └── config.jsonc     # Compact Fetch
 └── screenshots
     └── arch.png
 ```

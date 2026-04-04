@@ -63,6 +63,21 @@ echo -e "${CYAN}  Terminal Installer v7 — BlackArch Edition${RESET}"
 echo -e "${MAGENTA}  By Matyas Abraham | MASU Cyber Learning Project${RESET}"
 echo ""
 
+# ─── Theme Selection ───────────────────────────────────────
+CHOSEN_THEME="minimal" # Default
+echo -e "${CYAN}Select Your MASU Theme Style:${RESET}"
+echo -e "  1) ${GREEN}MASU Minimal${RESET} (Fast, clean, mobile-optimized)"
+echo -e "  2) ${MAGENTA}MASU Cyber  ${RESET} (Neon colors, icon-heavy, cyberpunk)"
+echo -e "  3) ${YELLOW}P10K Default${RESET} (Run interactive wizard later)"
+read -rp "  Selection [1-3, default 1]: " theme_choice
+
+case "$theme_choice" in
+    2) CHOSEN_THEME="cyber" ;;
+    3) CHOSEN_THEME="default" ;;
+    *) CHOSEN_THEME="minimal" ;;
+esac
+info "Starting installation for theme: ${BOLD}$CHOSEN_THEME${RESET}"
+
 # ─── Root check ────────────────────────────────────────────
 if [[ $EUID -eq 0 ]] && [[ -z "${PREFIX:-}" ]]; then
     warn "Running as root is NOT recommended. Plugins may install to /root."
@@ -159,7 +174,7 @@ fi
 step "Checking Dependencies"
 
 MISSING_DEPS=()
-for dep in git curl zsh; do
+for dep in git curl zsh fzf fastfetch; do
     if ! command -v "$dep" &>/dev/null; then
         MISSING_DEPS+=("$dep")
     else
@@ -173,11 +188,11 @@ if [[ ${#MISSING_DEPS[@]} -gt 0 ]]; then
     info "Missing: ${MISSING_DEPS[*]}"
 
     case "$OS" in
-        termux)   pkg update -y && pkg install -y zsh git curl ;;
-        arch)     sudo pacman -Sy --noconfirm --needed zsh git curl ;;
-        debian)   sudo apt-get update -qq && sudo apt-get install -y zsh git curl ;;
-        fedora)   sudo dnf install -y zsh git curl ;;
-        opensuse) sudo zypper install -y zsh git curl ;;
+        termux)   pkg update -y && pkg install -y zsh git curl fzf fastfetch ;;
+        arch)     sudo pacman -Sy --noconfirm --needed zsh git curl fzf fastfetch ;;
+        debian)   sudo apt-get update -qq && sudo apt-get install -y zsh git curl fzf fastfetch ;;
+        fedora)   sudo dnf install -y zsh git curl fzf fastfetch ;;
+        opensuse) sudo zypper install -y zsh git curl fzf fastfetch ;;
     esac
 
     success "Packages installed"
@@ -279,9 +294,13 @@ install_plugin() {
     success "$name ready"
 }
 
-install_plugin "zsh-autosuggestions"   "https://github.com/zsh-users/zsh-autosuggestions"
-install_plugin "zsh-syntax-highlighting" "https://github.com/zsh-users/zsh-syntax-highlighting"
-install_plugin "zsh-history-substring-search" "https://github.com/zsh-users/zsh-history-substring-search"
+install_plugin "zsh-autosuggestions"   "https://github.com/zsh-users/zsh-autosuggestions" &
+install_plugin "zsh-syntax-highlighting" "https://github.com/zsh-users/zsh-syntax-highlighting" &
+install_plugin "zsh-history-substring-search" "https://github.com/zsh-users/zsh-history-substring-search" &
+install_plugin "zsh-completions" "https://github.com/zsh-users/zsh-completions" &
+
+wait
+success "All plugins installed/updated (parallel)"
 
 # ─── Configure .zshrc ──────────────────────────────────────
 step "Configuring .zshrc"
@@ -308,7 +327,7 @@ insert_marker_block() {
 # 1. Base ZSH Configuration
 ZSH_BASE_CONFIG="export ZSH=\"\$HOME/.oh-my-zsh\"
 ZSH_THEME=\"powerlevel10k/powerlevel10k\"
-plugins=(git zsh-autosuggestions zsh-syntax-highlighting zsh-history-substring-search)
+plugins=(git zsh-autosuggestions zsh-syntax-highlighting zsh-history-substring-search zsh-completions)
 source \$ZSH/oh-my-zsh.sh"
 
 insert_marker_block ~/.zshrc "BASE" "$ZSH_BASE_CONFIG"
@@ -317,7 +336,20 @@ insert_marker_block ~/.zshrc "BASE" "$ZSH_BASE_CONFIG"
 p10k_source_block="[[ -f ~/.p10k.zsh ]] && source ~/.p10k.zsh"
 insert_marker_block ~/.zshrc "P10K" "$p10k_source_block"
 
-# 3. MASU Aliases
+# 3. FZF Integration
+fzf_block="[[ -f /usr/share/fzf/key-bindings.zsh ]] && source /usr/share/fzf/key-bindings.zsh
+[[ -f /usr/share/fzf/completion.zsh ]] && source /usr/share/fzf/completion.zsh
+# Termux FZF
+[[ -f $PREFIX/share/fzf/key-bindings.zsh ]] && source $PREFIX/share/fzf/key-bindings.zsh"
+insert_marker_block ~/.zshrc "FZF" "$fzf_block"
+
+# 4. Fastfetch MASU Welcome
+fetch_block="if [[ -o interactive ]]; then
+    fastfetch --config \$HOME/.config/fastfetch/config.jsonc
+fi"
+insert_marker_block ~/.zshrc "FETCH" "$fetch_block"
+
+# 5. MASU Aliases
 case "$OS" in
     arch)     UPDATE_CMD="sudo pacman -Syu" ;;
     debian)   UPDATE_CMD="sudo apt update && sudo apt upgrade" ;;
@@ -506,21 +538,30 @@ fi
 
 # ─── First Run Setup ───────────────────────────────────────
 
-# Fix permissions on powerlevel10k and plugins
-chmod -R 755 ~/.oh-my-zsh/custom/themes/powerlevel10k 2>/dev/null || true
-chmod -R 755 ~/.oh-my-zsh/custom/plugins/ 2>/dev/null || true
+# Setup Fastfetch config
+mkdir -p ~/.config/fastfetch
+if [[ -f "$SCRIPT_DIR/configs/fastfetch/config.jsonc" ]]; then
+    cp "$SCRIPT_DIR/configs/fastfetch/config.jsonc" ~/.config/fastfetch/config.jsonc
+    success "MASU Fetch config applied"
+fi
 
-if [[ "$OS" = "termux" ]]; then
-    step "Applying Zero-Config Termux Theme"
-    if [[ -f "$SCRIPT_DIR/configs/zsh/p10k-termux.zsh" ]]; then
-        cp "$SCRIPT_DIR/configs/zsh/p10k-termux.zsh" ~/.p10k.zsh
-        success "Termux p10k theme applied"
-    else
-        warn "p10k-termux.zsh not found in $SCRIPT_DIR/configs/zsh/"
-    fi
-else
-    # Write a one-time file that runs the p10k wizard on first zsh open
-    cat > ~/.masu_first_run.zsh << 'FIRSTRUN'
+step "Applying Theme: $CHOSEN_THEME"
+case "$CHOSEN_THEME" in
+    minimal)
+        if [[ -f "$SCRIPT_DIR/configs/zsh/p10k-termux.zsh" ]]; then
+            cp "$SCRIPT_DIR/configs/zsh/p10k-termux.zsh" ~/.p10k.zsh
+            success "MASU Minimal theme applied"
+        fi
+        ;;
+    cyber)
+        if [[ -f "$SCRIPT_DIR/configs/zsh/p10k-cyber.zsh" ]]; then
+            cp "$SCRIPT_DIR/configs/zsh/p10k-cyber.zsh" ~/.p10k.zsh
+            success "MASU Cyber theme applied"
+        fi
+        ;;
+    *)
+        # Default: Write a one-time file that runs the p10k wizard on first zsh open
+        cat > ~/.masu_first_run.zsh << 'FIRSTRUN'
 # MASU first-run — auto-deleted after use
 rm -f ~/.masu_first_run.zsh
 # Remove hook from .zshrc (using sed with the marker)
@@ -528,11 +569,15 @@ sed -i '/MASU-FIRST-RUN-START/,/MASU-FIRST-RUN-END/d' ~/.zshrc 2>/dev/null
 # Run the wizard
 [[ ! -f ~/.p10k.zsh ]] && p10k configure
 FIRSTRUN
-fi
+        
+        FIRST_RUN_HOOK="[[ -f ~/.masu_first_run.zsh ]] && source ~/.masu_first_run.zsh"
+        insert_marker_block ~/.zshrc "FIRST-RUN" "$FIRST_RUN_HOOK"
+        ;;
+esac
 
 # Remove old .zshenv hook if it exists from previous versions
 [[ -f ~/.zshenv ]] && sed -i '/masu_first_run/d' ~/.zshenv 2>/dev/null || true
-[[ -f ~/.masu_first_run.zsh ]] && [[ "$OS" = "termux" ]] && rm ~/.masu_first_run.zsh
+[[ -f ~/.masu_first_run.zsh ]] && [[ "$CHOSEN_THEME" != "default" ]] && rm ~/.masu_first_run.zsh
 
 # ─── Done ──────────────────────────────────────────────────
 echo ""
@@ -541,17 +586,21 @@ echo -e "║   Installation Complete! ✓           ║"
 echo -e "╚══════════════════════════════════════╝${RESET}"
 echo ""
 echo -e "  ${CYAN}What's installed:${RESET}"
-echo -e "    • ZSH + Oh My Zsh"
-echo -e "    • Powerlevel10k theme"
+echo -e "    • ZSH + Oh My Zsh + P10k"
+echo -e "    • Theme: ${BOLD}$CHOSEN_THEME${RESET}"
 echo -e "    • MesloLGS Nerd Font         ${GREEN}(auto-installed!)${RESET}"
-echo -e "    • zsh-autosuggestions"
-echo -e "    • zsh-syntax-highlighting"
-echo -e "    • zsh-history-substring-search"
+echo -e "    • Plugins: ${CYAN}autosuggestions, syntax, completions${RESET}"
+echo -e "    • Productivity: ${CYAN}fzf (Fuzzy Search)${RESET}"
+echo -e "    • UI: ${CYAN}Fastfetch (MASU Config)${RESET}"
 echo -e "    • MASU productivity aliases"
 echo ""
 echo -e "  ${YELLOW}Remember:${RESET} Set ${BOLD}MesloLGS NF${RESET} as your terminal font to see icons."
 echo ""
-echo -e "  ${GREEN}${BOLD}✓ Open a new terminal — Powerlevel10k wizard will start automatically!${RESET}"
+if [[ "$CHOSEN_THEME" = "default" ]]; then
+    echo -e "  ${GREEN}${BOLD}✓ Open a new terminal — Powerlevel10k wizard will start!${RESET}"
+else
+    echo -e "  ${GREEN}${BOLD}✓ Open a new terminal to see your new MASU setup!${RESET}"
+fi
 echo ""
 echo -e "  ${MAGENTA}MASU Cyber Learning Project — Stay Sharp!${RESET}"
 echo ""
