@@ -23,6 +23,9 @@ The script automatically detects your operating system and installs everything r
 ✔ Installs ZSH Syntax Highlighting plugin
 ✔ Optional Matrix animation
 ✔ Backup of existing `.zshrc` configuration
+✔ **Zero-Config Termux Support** — automatic mobile-optimized theme
+✔ **Marker-based Configuration** — safe, re-runnable `.zshrc` updates
+✔ **Termux Storage Integration** — automatic setup prompt
 ✔ Works on Linux and Termux
 
 ---
@@ -122,6 +125,9 @@ masu-terminal-installer
 │
 ├── install.sh
 ├── README.md
+├── configs
+│   └── zsh
+│       └── p10k-termux.zsh   # Zero-Config Mobile Theme
 └── screenshots
     └── arch.png
 ```

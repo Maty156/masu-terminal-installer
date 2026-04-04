@@ -9,6 +9,15 @@
 
 set -euo pipefail
 
+# ─── Cleanup Trap ──────────────────────────────────────────
+cleanup() {
+    local exit_code=$?
+    [[ $exit_code -ne 0 ]] && error "Interrupted! Check the errors above."
+    # Add any temporary file cleanup here if needed
+    exit $exit_code
+}
+trap cleanup EXIT INT TERM
+
 # ─── Colors ────────────────────────────────────────────────
 GREEN="\e[32m"
 RED="\e[31m"
@@ -105,6 +114,18 @@ if [[ "$OS" = "unknown" ]]; then
 fi
 
 success "Detected: ${BOLD}$DISTRO_LABEL${RESET}"
+
+# ─── Termux Storage Check ──────────────────────────────────
+if [[ "$OS" = "termux" ]]; then
+    step "Termux Environment Setup"
+    if [[ ! -d ~/storage ]]; then
+        info "Storage access is recommended for Termux."
+        read -rp "  Run 'termux-setup-storage' now? (y/n): " setup_storage
+        [[ "$setup_storage" = "y" ]] && termux-setup-storage
+    else
+        success "Storage access already configured"
+    fi
+fi
 
 # ─── Internet Check ────────────────────────────────────────
 step "Checking Internet Connection"
@@ -265,41 +286,64 @@ install_plugin "zsh-history-substring-search" "https://github.com/zsh-users/zsh-
 # ─── Configure .zshrc ──────────────────────────────────────
 step "Configuring .zshrc"
 
-# Set ZSH path
-if ! grep -q "^export ZSH=" ~/.zshrc; then
-    echo 'export ZSH="$HOME/.oh-my-zsh"' >> ~/.zshrc
+# Helper for marker-based insertion
+insert_marker_block() {
+    local file=$1
+    local name=$2
+    local content=$3
+    local start_marker="# MASU-${name}-START"
+    local end_marker="# MASU-${name}-END"
+
+    # Remove existing block if it exists
+    sed -i "/$start_marker/,/$end_marker/d" "$file" 2>/dev/null || true
+
+    # Append new block
+    {
+        echo "$start_marker"
+        echo "$content"
+        echo "$end_marker"
+    } >> "$file"
+}
+
+# 1. Base ZSH Configuration
+ZSH_BASE_CONFIG="export ZSH=\"\$HOME/.oh-my-zsh\"
+ZSH_THEME=\"powerlevel10k/powerlevel10k\"
+plugins=(git zsh-autosuggestions zsh-syntax-highlighting zsh-history-substring-search)
+source \$ZSH/oh-my-zsh.sh"
+
+insert_marker_block ~/.zshrc "BASE" "$ZSH_BASE_CONFIG"
+
+# 2. Powerlevel10k Source
+p10k_source_block="[[ -f ~/.p10k.zsh ]] && source ~/.p10k.zsh"
+insert_marker_block ~/.zshrc "P10K" "$p10k_source_block"
+
+# 3. MASU Aliases
+case "$OS" in
+    arch)     UPDATE_CMD="sudo pacman -Syu" ;;
+    debian)   UPDATE_CMD="sudo apt update && sudo apt upgrade" ;;
+    fedora)   UPDATE_CMD="sudo dnf upgrade" ;;
+    opensuse) UPDATE_CMD="sudo zypper update" ;;
+    termux)   UPDATE_CMD="pkg upgrade" ;;
+    *)        UPDATE_CMD="echo 'Update command not set for this distro'" ;;
+esac
+
+MASU_ALIASES="alias ll=\"ls -lah --color=auto\"
+alias la=\"ls -A --color=auto\"
+alias update=\"$UPDATE_CMD\"
+alias ports=\"ss -tulnp\"
+alias myip=\"curl -s https://ipinfo.io/ip\"
+alias cls=\"clear\"
+alias reload=\"source ~/.zshrc\""
+
+insert_marker_block ~/.zshrc "ALIASES" "$MASU_ALIASES"
+
+# 4. First-Run Hook (Conditional)
+if [[ "$OS" != "termux" ]]; then
+    FIRST_RUN_HOOK="[[ -f ~/.masu_first_run.zsh ]] && source ~/.masu_first_run.zsh"
+    insert_marker_block ~/.zshrc "FIRST-RUN" "$FIRST_RUN_HOOK"
 fi
 
-# Set theme
-if grep -q "^ZSH_THEME=" ~/.zshrc; then
-    sed -i 's|^ZSH_THEME=.*|ZSH_THEME="powerlevel10k/powerlevel10k"|' ~/.zshrc
-else
-    echo 'ZSH_THEME="powerlevel10k/powerlevel10k"' >> ~/.zshrc
-fi
-
-# Set plugins — write the full line cleanly, no multiline sed issues
-if grep -q "^plugins=(" ~/.zshrc; then
-    # Remove the entire plugins=(...) block however many lines it spans
-    sed -i '/^plugins=(/,/)/d' ~/.zshrc
-fi
-# Write a clean single-line plugins entry
-echo 'plugins=(git zsh-autosuggestions zsh-syntax-highlighting zsh-history-substring-search)' >> ~/.zshrc
-
-# Make sure oh-my-zsh.sh is sourced
-if ! grep -q "source \$ZSH/oh-my-zsh.sh" ~/.zshrc; then
-    echo 'source $ZSH/oh-my-zsh.sh' >> ~/.zshrc
-fi
-
-# Add p10k config source at the BOTTOM of .zshrc
-if ! grep -q "\.p10k\.zsh" ~/.zshrc; then
-    cat >> ~/.zshrc << 'ZSHEOF'
-
-# ─── Powerlevel10k ─────────────────────────────────────────
-# To reconfigure run: p10k configure
-[[ -f ~/.p10k.zsh ]] && source ~/.p10k.zsh
-ZSHEOF
-    success "Added Powerlevel10k config source to .zshrc"
-fi
+success ".zshrc configured with Marker Blocks"
 
 # Add aliases — distro-aware update command
 if ! grep -q "MASU Aliases" ~/.zshrc; then
@@ -434,6 +478,12 @@ case "$OS" in
             success "Font set for Termux (~/.termux/font.ttf)" && \
             FONT_INSTALLED=true || \
             warn "Font download failed for Termux"
+        
+        # Reload Termux settings to apply font immediately
+        if command -v termux-reload-settings &>/dev/null; then
+            termux-reload-settings
+            success "Termux settings reloaded"
+        fi
         ;;
 esac
 
@@ -460,19 +510,29 @@ fi
 chmod -R 755 ~/.oh-my-zsh/custom/themes/powerlevel10k 2>/dev/null || true
 chmod -R 755 ~/.oh-my-zsh/custom/plugins/ 2>/dev/null || true
 
-# Write a one-time file that runs the p10k wizard on first zsh open
-cat > ~/.masu_first_run.zsh << 'FIRSTRUN'
+if [[ "$OS" = "termux" ]]; then
+    step "Applying Zero-Config Termux Theme"
+    if [[ -f "$SCRIPT_DIR/configs/zsh/p10k-termux.zsh" ]]; then
+        cp "$SCRIPT_DIR/configs/zsh/p10k-termux.zsh" ~/.p10k.zsh
+        success "Termux p10k theme applied"
+    else
+        warn "p10k-termux.zsh not found in $SCRIPT_DIR/configs/zsh/"
+    fi
+else
+    # Write a one-time file that runs the p10k wizard on first zsh open
+    cat > ~/.masu_first_run.zsh << 'FIRSTRUN'
 # MASU first-run — auto-deleted after use
 rm -f ~/.masu_first_run.zsh
-sed -i '/masu_first_run/d' ~/.zshenv 2>/dev/null
+# Remove hook from .zshrc (using sed with the marker)
+sed -i '/MASU-FIRST-RUN-START/,/MASU-FIRST-RUN-END/d' ~/.zshrc 2>/dev/null
 # Run the wizard
 [[ ! -f ~/.p10k.zsh ]] && p10k configure
 FIRSTRUN
-
-# Hook into .zshenv — sourced by ALL zsh instances on ALL distros including Termux
-if ! grep -q "masu_first_run" ~/.zshenv 2>/dev/null; then
-    echo '[[ -f ~/.masu_first_run.zsh ]] && source ~/.masu_first_run.zsh' >> ~/.zshenv
 fi
+
+# Remove old .zshenv hook if it exists from previous versions
+[[ -f ~/.zshenv ]] && sed -i '/masu_first_run/d' ~/.zshenv 2>/dev/null || true
+[[ -f ~/.masu_first_run.zsh ]] && [[ "$OS" = "termux" ]] && rm ~/.masu_first_run.zsh
 
 # ─── Done ──────────────────────────────────────────────────
 echo ""
