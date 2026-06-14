@@ -131,32 +131,130 @@ fi
 
 success "Detected: ${BOLD}$DISTRO_LABEL${RESET}"
 
-# ─── Install Dependencies ─────────────────────────────────
-step "Installing Dependencies"
-# (keeping your original logic)
+# ─── Install Dependencies & Tools ──────────────────────────
+step "Installing Dependencies and core tools"
 
-MISSING_DEPS=()
-for dep in git curl zsh fzf fastfetch; do
-    if ! command -v "$dep" &>/dev/null; then
-        MISSING_DEPS+=("$dep")
+# Determine if we should prefix commands with sudo
+SUDO_CMD="sudo"
+if [[ $EUID -eq 0 ]] || [[ "$OS" = "termux" ]]; then
+    SUDO_CMD=""
+fi
+
+install_packages() {
+    local pkgs=("${@}")
+    case "$OS" in
+        termux)
+            pkg update -y
+            pkg install -y "${pkgs[@]}"
+            ;;
+        arch)
+            ${SUDO_CMD} pacman -Sy --noconfirm --needed "${pkgs[@]}"
+            ;;
+        debian)
+            ${SUDO_CMD} apt-get update -qq
+            ${SUDO_CMD} apt-get install -y "${pkgs[@]}"
+            ;;
+        fedora)
+            ${SUDO_CMD} dnf install -y "${pkgs[@]}"
+            ;;
+        opensuse)
+            ${SUDO_CMD} zypper install -y "${pkgs[@]}"
+            ;;
+        *)
+            warn "Unknown package manager for OS=$OS. Please install: ${pkgs[*]}"
+            return 1
+            ;;
+    esac
+}
+
+# Basic required tools
+REQUIRED=(git curl zsh fzf fastfetch)
+MISSING=()
+for d in "${REQUIRED[@]}"; do
+    if ! command -v "$d" &>/dev/null; then
+        MISSING+=("$d")
     fi
 done
 
-if [[ ${#MISSING_DEPS[@]} -gt 0 ]]; then
-    case "$OS" in
-        termux)   pkg update -y && pkg install -y "${MISSING_DEPS[@]}" ;;
-        arch)     sudo pacman -Sy --noconfirm --needed "${MISSING_DEPS[@]}" ;;
-        debian)   sudo apt-get update -qq && sudo apt-get install -y "${MISSING_DEPS[@]}" ;;
-        fedora)   sudo dnf install -y "${MISSING_DEPS[@]}" ;;
-        opensuse) sudo zypper install -y "${MISSING_DEPS[@]}" ;;
-    esac
-    success "Dependencies installed"
+if [[ ${#MISSING[@]} -gt 0 ]]; then
+    info "Missing tools: ${MISSING[*]}"
+    if ! install_packages "${MISSING[@]}"; then
+        warn "Automatic package installation failed. Please install these manually: ${MISSING[*]}"
+    else
+        success "Dependencies installed"
+    fi
+else
+    success "All dependencies present"
 fi
 
-# ─── Oh My Zsh + Powerlevel10k + Plugins (same as before) ─
-# ... [I kept the structure but you can keep your original blocks] ...
+# ─── Oh My Zsh, Powerlevel10k, and plugins ───────────────
+step "Installing Oh My Zsh, Powerlevel10k and plugins"
 
-# For brevity, I'm showing the **most important improved parts** below:
+# Ensure HOME is writable and paths exist
+mkdir -p "$HOME/.config/fastfetch"
+
+# Oh My Zsh
+if [[ ! -d "$HOME/.oh-my-zsh" ]]; then
+    info "Installing Oh My Zsh"
+    git clone --depth=1 https://github.com/ohmyzsh/ohmyzsh.git "$HOME/.oh-my-zsh" || warn "Could not clone oh-my-zsh"
+else
+    info "Oh My Zsh already installed"
+fi
+
+# Powerlevel10k
+if [[ ! -d "$HOME/.oh-my-zsh/custom/themes/powerlevel10k" ]]; then
+    info "Installing Powerlevel10k"
+    git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "$HOME/.oh-my-zsh/custom/themes/powerlevel10k" || warn "Could not clone p10k"
+else
+    info "Powerlevel10k already present"
+fi
+
+# Plugins
+install_plugin() {
+    local repo=$1 dest="$HOME/.oh-my-zsh/custom/plugins/$(basename "$repo" .git)"
+    if [[ ! -d "$dest" ]]; then
+        git clone --depth=1 "$repo" "$dest" || warn "Failed to clone $repo"
+    fi
+}
+install_plugin https://github.com/zsh-users/zsh-autosuggestions.git
+install_plugin https://github.com/zsh-users/zsh-syntax-highlighting.git
+install_plugin https://github.com/zsh-users/zsh-completions.git
+
+# Copy selected p10k config
+case "$CHOSEN_THEME" in
+    cyber)   P10K_SRC="$SCRIPT_DIR/configs/zsh/p10k-cyber.zsh" ;;
+    minimal) P10K_SRC="$SCRIPT_DIR/configs/zsh/p10k-termux.zsh" ;;
+    default) P10K_SRC="$SCRIPT_DIR/configs/zsh/p10k-cyber.zsh" ;;
+    *)       P10K_SRC="$SCRIPT_DIR/configs/zsh/p10k-termux.zsh" ;;
+esac
+if [[ -f "$P10K_SRC" ]]; then
+    cp -f "$P10K_SRC" "$HOME/.p10k.zsh" || warn "Could not copy p10k config"
+    success "Powerlevel10k config applied"
+fi
+
+# Copy fastfetch config based on environment
+if [[ "$OS" = "termux" ]] || [[ "$CHOSEN_THEME" = "minimal" ]]; then
+    FF_SRC="$SCRIPT_DIR/configs/fastfetch/mobile-config.jsonc"
+else
+    FF_SRC="$SCRIPT_DIR/configs/fastfetch/pc-config.jsonc"
+fi
+if [[ -f "$FF_SRC" ]]; then
+    cp -f "$FF_SRC" "$HOME/.config/fastfetch/config.jsonc" || warn "Could not copy fastfetch config"
+    success "fastfetch config installed"
+fi
+
+# Alias for update per distro
+case "$OS" in
+    arch)   UPDATE_ALIAS='sudo pacman -Syu' ;;
+    debian) UPDATE_ALIAS='sudo apt update && sudo apt upgrade -y' ;;
+    fedora) UPDATE_ALIAS='sudo dnf upgrade --refresh -y' ;;
+    opensuse) UPDATE_ALIAS='sudo zypper refresh && sudo zypper update -y' ;;
+    termux) UPDATE_ALIAS='pkg up -y' ;;
+    *)      UPDATE_ALIAS='echo "Please update your system manually"' ;;
+esac
+sed -i "/^alias update=/d" "$HOME/.zshrc" 2>/dev/null || true
+echo "alias update='${UPDATE_ALIAS}'" >> "$HOME/.zshrc"
+
 
 # ─── Improved Default Shell Setup ─────────────────────────
 step "Setting Default Shell"
