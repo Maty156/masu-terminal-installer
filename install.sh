@@ -2,7 +2,7 @@
 
 # ============================================================
 # MASU Terminal Installer v8.0 - BlackArch Edition
-# Author: Matyas Abraham | MASU Cyber Learning Project
+# Author: Matyas Abraham 
 # Supports: Arch, BlackArch, Ubuntu, Debian, Fedora,
 #           OpenSUSE, Kali, Parrot OS, Termux
 # ============================================================
@@ -292,18 +292,27 @@ step "Setting Default Shell"
 ZSH_PATH=$(command -v zsh)
 
 if [[ "$OS" = "termux" ]]; then
-    echo 'exec zsh' >> ~/.bashrc 2>/dev/null || true
+    # Remove any existing exec zsh line to avoid duplicates, then add it
+    sed -i '/^exec zsh/d' ~/.bashrc 2>/dev/null || true
+    echo 'exec zsh' >> ~/.bashrc
     success "Termux configured to use ZSH"
 else
+    SHELL_CHANGED=false
     if sudo usermod -s "$ZSH_PATH" "$USER" 2>/dev/null; then
-        success "Default shell set to ZSH (usermod)"
+        success "Default shell set to ZSH (usermod) — takes effect on next login"
+        SHELL_CHANGED=true
     elif sudo chsh -s "$ZSH_PATH" "$USER" 2>/dev/null; then
-        success "Default shell set to ZSH (chsh)"
+        success "Default shell set to ZSH (chsh) — takes effect on next login"
+        SHELL_CHANGED=true
     else
-        warn "Could not set ZSH as default automatically"
-        echo -e "   ${YELLOW}After installation, run:${RESET}"
-        echo -e "   sudo usermod -s $(which zsh) \$USER"
-        echo -e "   Then log out and log back in."
+        warn "Could not set ZSH as default shell automatically"
+        warn "Run this manually then log out and back in:"
+        echo -e "   sudo usermod -s $ZSH_PATH \$USER"
+    fi
+
+    # Regardless of whether usermod worked, switch the current session to ZSH now
+    if [[ "$SHELL_CHANGED" = true ]]; then
+        info "To switch your current session to ZSH now without logging out, run: exec zsh"
     fi
 fi
 
@@ -322,10 +331,19 @@ insert_marker_block() {
     } >> "$file"
 }
 
+# Instant prompt — MUST be first in .zshrc before any output-producing code.
+# This is required by Powerlevel10k to avoid the console output warning.
+insert_marker_block ~/.zshrc "INSTANT_PROMPT" 'if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
+  source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
+fi'
+
 # Base config
+# zsh-completions is loaded via fpath, NOT the plugins array — adding it to
+# plugins causes the "plugin not found" + extend_glob errors from OMZ.
 insert_marker_block ~/.zshrc "BASE" 'export ZSH="$HOME/.oh-my-zsh"
 ZSH_THEME="powerlevel10k/powerlevel10k"
-plugins=(git zsh-autosuggestions zsh-syntax-highlighting zsh-history-substring-search zsh-completions)
+plugins=(git zsh-autosuggestions zsh-syntax-highlighting zsh-history-substring-search)
+fpath+="${ZSH_CUSTOM:-${ZSH:-~/.oh-my-zsh}/custom}/plugins/zsh-completions/src"
 source $ZSH/oh-my-zsh.sh'
 
 # P10k
@@ -373,7 +391,11 @@ else
     echo -e "  ${CYAN}→${RESET} Fastfetch: manual only — run ${BOLD}fastfetch-masu${RESET}"
 fi
 echo ""
-echo -e "${YELLOW}Note:${RESET} If ZSH doesn't start by default, check your terminal settings"
-echo -e "      (Edit → Preferences → Command → Uncheck custom command)"
+echo -e "${YELLOW}Next steps:${RESET}"
+echo -e "  1. Run ${BOLD}exec zsh${RESET} to switch your current session to ZSH now"
+echo -e "  2. Or log out and back in — ZSH will be your default shell"
+if [[ "$CHOSEN_THEME" = "wizard" ]]; then
+    echo -e "  3. The P10K wizard will launch automatically on your first ZSH session"
+fi
 echo ""
 echo -e "${MAGENTA}MASU Cyber Learning Project — Stay Sharp!${RESET}"
