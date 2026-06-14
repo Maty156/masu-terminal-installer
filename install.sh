@@ -59,7 +59,7 @@ cat << 'EOF'
 ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝
 EOF
 echo -e "${CYAN}  Terminal Installer v7.1 — BlackArch Edition${RESET}"
-echo -e "${MAGENTA}  By Matyas Abraham | ${RESET}"
+echo -e "${MAGENTA}  By Matyas Abraham | MASU Cyber Learning Project${RESET}"
 echo ""
 
 # ─── Script Directory ─────────────────────────────────────
@@ -306,10 +306,12 @@ insert_marker_block ~/.zshrc "FZF" '[[ -f /usr/share/fzf/key-bindings.zsh ]] && 
 [[ -f /usr/share/fzf/completion.zsh ]] && source /usr/share/fzf/completion.zsh
 [[ -n "${PREFIX:-}" && -f "$PREFIX/share/fzf/key-bindings.zsh" ]] && source "$PREFIX/share/fzf/key-bindings.zsh"'
 
-# Fastfetch (Delayed to avoid instant prompt warning)
-insert_marker_block ~/.zshrc "FETCH" 'if [[ -o interactive ]]; then
-    fastfetch --config ~/.config/fastfetch/config.jsonc 2>/dev/null || true
-fi'
+# Fastfetch (disabled by default; run manually if desired)
+insert_marker_block ~/.zshrc "FETCH" '# Fastfetch is installed but disabled by default to avoid
+# showing system info on every new terminal. To run manually, use:
+#   fastfetch --config ~/.config/fastfetch/config.jsonc
+# Or use the provided quick alias:
+alias fastfetch-masu="fastfetch --config ~/.config/fastfetch/config.jsonc 2>/dev/null || true"'
 
 # Aliases
 insert_marker_block ~/.zshrc "ALIASES" 'alias ll="ls -lah --color=auto"
