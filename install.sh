@@ -2,7 +2,7 @@
 
 # ============================================================
 # MASU Terminal Installer v8.0 - BlackArch Edition
-# Author: Matyas Abraham 
+# Author: Matyas Abraham
 # Supports: Arch, BlackArch, Ubuntu, Debian, Fedora,
 #           OpenSUSE, Kali, Parrot OS, Termux
 # ============================================================
@@ -231,7 +231,6 @@ install_plugin() {
 }
 install_plugin https://github.com/zsh-users/zsh-autosuggestions.git
 install_plugin https://github.com/zsh-users/zsh-syntax-highlighting.git
-install_plugin https://github.com/zsh-users/zsh-completions.git
 install_plugin https://github.com/zsh-users/zsh-history-substring-search.git
 
 # Copy selected p10k config
@@ -343,7 +342,6 @@ fi'
 insert_marker_block ~/.zshrc "BASE" 'export ZSH="$HOME/.oh-my-zsh"
 ZSH_THEME="powerlevel10k/powerlevel10k"
 plugins=(git zsh-autosuggestions zsh-syntax-highlighting zsh-history-substring-search)
-fpath+="${ZSH_CUSTOM:-${ZSH:-~/.oh-my-zsh}/custom}/plugins/zsh-completions/src"
 source $ZSH/oh-my-zsh.sh'
 
 # P10k
