@@ -2,6 +2,7 @@
 
 ![Linux](https://img.shields.io/badge/platform-Linux-green)
 ![Bash](https://img.shields.io/badge/language-Bash-blue)
+![Version](https://img.shields.io/badge/version-v8.0-blue)
 ![Open Source](https://img.shields.io/badge/license-MIT-orange)
 ![Status](https://img.shields.io/badge/status-active-success)
 
@@ -15,12 +16,13 @@ The script automatically detects your operating system and installs everything r
 
 # Features
 
-✔ **MASU Cyber Upgrade (v8)** — Parallel cloning + Theme menu
+✔ **3 Theme Options** — Minimal, Cyber, or P10K interactive wizard
+✔ **Fastfetch Startup Choice** — opt in or out during install
 ✔ **Zero-Config Termux Support** — automatic mobile-optimized theme
 ✔ **Marker-based Configuration** — safe, re-runnable `.zshrc` updates
 ✔ **Integrated FZF** — fuzzy history search and navigation
 ✔ **Custom Fastfetch** — lightweight, compact MASU-themed info
-✔ **Termux Storage Integration** — automatic setup prompt
+✔ **Per-distro Update Alias** — `update` command works correctly on every OS
 ✔ Works on Linux and Termux
 
 ---
@@ -31,10 +33,9 @@ The installer automatically detects your system.
 
 Currently supported systems include:
 
-* Arch Linux
-* Ubuntu
-* Debian
-* Fedora
+* Arch Linux / BlackArch / Manjaro
+* Ubuntu / Debian / Kali / Parrot
+* Fedora / RHEL / Rocky
 * OpenSUSE
 * Termux
 
@@ -42,68 +43,77 @@ Other distributions may also work if they use compatible package managers.
 
 ---
 
-# One Command Installation
+# Installation
 
-Run the installer directly from GitHub:
+## Recommended — Clone and Run
+
+Cloning the repo gives you the full installation including p10k themes and fastfetch configs:
+
+```
+git clone https://github.com/Maty156/masu-terminal-installer.git
+cd masu-terminal-installer
+chmod +x install.sh
+./install.sh
+```
+
+## Quick Install — One Command
 
 ```
 bash <(curl -s https://raw.githubusercontent.com/Maty156/masu-terminal-installer/main/install.sh)
 ```
 
-This downloads and runs the installer automatically.
+> **Note:** The curl one-liner skips copying local config files (p10k themes, fastfetch configs) since there are no local files to copy. Theme 1 and 2 will fall back to defaults, and fastfetch will use system defaults. For the full experience use the clone method above.
 
 ---
 
-# Manual Installation
+# Theme Selection
 
-Clone the repository:
+During install you will be asked to choose a theme:
 
-```
-git clone https://github.com/Maty156/masu-terminal-installer.git
-```
+| Option | Name | Description |
+|--------|------|-------------|
+| 1 | MASU Minimal | Fast, clean, mobile-optimized (default) |
+| 2 | MASU Cyber | Neon colors, icon-heavy |
+| 3 | P10K Wizard | Launches the interactive p10k setup on first ZSH session |
 
-Enter the project directory:
+---
 
-```
-cd masu-terminal-installer
-```
+# Fastfetch
 
-Make the script executable:
+You will also be asked whether you want fastfetch to show system info every time a terminal opens.
 
-```
-chmod +x install.sh
-```
-
-Run the installer:
+* If you choose **yes**, fastfetch runs automatically on each new terminal.
+* If you choose **no**, fastfetch is installed silently. You can run it anytime with:
 
 ```
-./install.sh
+fastfetch-masu
+```
+
+To enable it on startup later, add this line to your `~/.zshrc`:
+
+```
+fastfetch --config ~/.config/fastfetch/config.jsonc
 ```
 
 ---
 
 # What the Script Installs
 
-The installer configures a complete terminal environment including:
-
 * ZSH shell
 * Oh My Zsh configuration framework
 * Powerlevel10k theme
 * ZSH Autosuggestions
 * ZSH Syntax Highlighting
-
-These tools improve terminal productivity by providing:
-
-* command suggestions
-* syntax highlighting
-* improved terminal appearance
-* faster workflow
+* ZSH Completions
+* ZSH History Substring Search
+* fzf (fuzzy finder with key bindings)
+* fastfetch (system info display)
 
 ---
 
 # Screenshots
 
-### Arch Linux
+### Hyprland / Kitty
 
 <p align="center">
   <img src="/screenshots/screenshot-20260325-192838.png" width="700">
@@ -122,10 +132,11 @@ masu-terminal-installer
 ├── README.md
 ├── configs
 │   ├── zsh
-│   │   ├── p10k-termux.zsh  # Minimal Theme
-│   │   └── p10k-cyber.zsh   # Cyber Theme
+│   │   ├── p10k-termux.zsh     # Minimal Theme
+│   │   └── p10k-cyber.zsh      # Cyber Theme
 │   └── fastfetch
-│       └── config.jsonc     # Compact Fetch
+│       ├── mobile-config.jsonc  # Termux / Minimal
+│       └── pc-config.jsonc      # Desktop
 └── screenshots
     └── arch.png
 ```
@@ -142,13 +153,10 @@ This project automates the entire setup process so anyone can install a professi
 
 # Future Improvements
 
-Planned improvements for future versions:
-
-* improved installer interface
-* loading animations
-* better plugin configuration
-* more terminal customization
+* loading animations during cloning steps
+* more theme presets
 * support for additional distributions
+* automatic font installation for Nerd Fonts
 
 ---
 
@@ -173,4 +181,3 @@ This project is open source and available under the MIT License.
 # Author
 
 Created by **Matyas Abraham**
-
