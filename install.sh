@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================
-# MASU Terminal Installer v7.1 - BlackArch Edition
+# MASU Terminal Installer v8.0 - BlackArch Edition
 # Author: Matyas Abraham | MASU Cyber Learning Project
 # Supports: Arch, BlackArch, Ubuntu, Debian, Fedora,
 #           OpenSUSE, Kali, Parrot OS, Termux
@@ -58,12 +58,19 @@ cat << 'EOF'
 ██║ ╚═╝ ██║██║  ██║███████║╚██████╔╝
 ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝
 EOF
-echo -e "${CYAN}  Terminal Installer v7.1 — BlackArch Edition${RESET}"
+echo -e "${CYAN}  Terminal Installer v8.0 — BlackArch Edition${RESET}"
 echo -e "${MAGENTA}  By Matyas Abraham | MASU Cyber Learning Project${RESET}"
 echo ""
 
 # ─── Script Directory ─────────────────────────────────────
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd 2>/dev/null)" || SCRIPT_DIR=""
+# When run via bash <(curl ...), BASH_SOURCE[0] is a pipe — configs can't be copied.
+# In that case, warn the user and skip config copy steps gracefully.
+if [[ ! -d "$SCRIPT_DIR" ]] || [[ "$SCRIPT_DIR" == "/" ]]; then
+    warn "Running from pipe/curl — local config files (p10k, fastfetch) will be skipped."
+    warn "For full setup, clone the repo and run: ./install.sh"
+    SCRIPT_DIR=""
+fi
 
 # ─── Theme Selection ───────────────────────────────────────
 CHOSEN_THEME="minimal" # Default
@@ -75,10 +82,16 @@ read -rp "  Selection [1-3, default 1]: " theme_choice
 
 case "$theme_choice" in
     2) CHOSEN_THEME="cyber" ;;
-    3) CHOSEN_THEME="default" ;;
+    3) CHOSEN_THEME="wizard" ;;
     *) CHOSEN_THEME="minimal" ;;
 esac
 info "Starting installation for theme: ${BOLD}$CHOSEN_THEME${RESET}"
+
+# ─── Fastfetch on startup preference ──────────────────────
+FASTFETCH_ON_START=false
+echo ""
+read -rp "  Show fastfetch info when a new terminal opens? (y/n, default n): " ff_choice
+[[ "$ff_choice" == "y" || "$ff_choice" == "Y" ]] && FASTFETCH_ON_START=true
 
 # ─── Root check ────────────────────────────────────────────
 if [[ $EUID -eq 0 ]] && [[ -z "${PREFIX:-}" ]]; then
@@ -219,28 +232,46 @@ install_plugin() {
 install_plugin https://github.com/zsh-users/zsh-autosuggestions.git
 install_plugin https://github.com/zsh-users/zsh-syntax-highlighting.git
 install_plugin https://github.com/zsh-users/zsh-completions.git
+install_plugin https://github.com/zsh-users/zsh-history-substring-search.git
 
 # Copy selected p10k config
-case "$CHOSEN_THEME" in
-    cyber)   P10K_SRC="$SCRIPT_DIR/configs/zsh/p10k-cyber.zsh" ;;
-    minimal) P10K_SRC="$SCRIPT_DIR/configs/zsh/p10k-termux.zsh" ;;
-    default) P10K_SRC="$SCRIPT_DIR/configs/zsh/p10k-cyber.zsh" ;;
-    *)       P10K_SRC="$SCRIPT_DIR/configs/zsh/p10k-termux.zsh" ;;
-esac
-if [[ -f "$P10K_SRC" ]]; then
-    cp -f "$P10K_SRC" "$HOME/.p10k.zsh" || warn "Could not copy p10k config"
-    success "Powerlevel10k config applied"
+# For "wizard" theme, skip copying — p10k will auto-launch its interactive wizard
+# on the first ZSH session when ~/.p10k.zsh does not exist.
+if [[ "$CHOSEN_THEME" != "wizard" ]]; then
+    case "$CHOSEN_THEME" in
+        cyber)   P10K_SRC="$SCRIPT_DIR/configs/zsh/p10k-cyber.zsh" ;;
+        minimal) P10K_SRC="$SCRIPT_DIR/configs/zsh/p10k-termux.zsh" ;;
+        *)       P10K_SRC="$SCRIPT_DIR/configs/zsh/p10k-termux.zsh" ;;
+    esac
+    if [[ -n "$SCRIPT_DIR" ]] && [[ -f "$P10K_SRC" ]]; then
+        cp -f "$P10K_SRC" "$HOME/.p10k.zsh" || warn "Could not copy p10k config"
+        success "Powerlevel10k config applied"
+    elif [[ -z "$SCRIPT_DIR" ]]; then
+        warn "Skipping p10k config copy (curl install — no local files)"
+    else
+        warn "p10k config not found at: $P10K_SRC"
+    fi
+else
+    # Remove any existing .p10k.zsh so the wizard triggers cleanly
+    rm -f "$HOME/.p10k.zsh"
+    info "P10K wizard will launch automatically on your first ZSH session"
 fi
 
 # Copy fastfetch config based on environment
-if [[ "$OS" = "termux" ]] || [[ "$CHOSEN_THEME" = "minimal" ]]; then
-    FF_SRC="$SCRIPT_DIR/configs/fastfetch/mobile-config.jsonc"
+if [[ -n "$SCRIPT_DIR" ]]; then
+    if [[ "$OS" = "termux" ]] || [[ "$CHOSEN_THEME" = "minimal" ]]; then
+        FF_SRC="$SCRIPT_DIR/configs/fastfetch/mobile-config.jsonc"
+    else
+        FF_SRC="$SCRIPT_DIR/configs/fastfetch/pc-config.jsonc"
+    fi
+    if [[ -f "$FF_SRC" ]]; then
+        cp -f "$FF_SRC" "$HOME/.config/fastfetch/config.jsonc" || warn "Could not copy fastfetch config"
+        success "fastfetch config installed"
+    else
+        warn "fastfetch config not found at: $FF_SRC"
+    fi
 else
-    FF_SRC="$SCRIPT_DIR/configs/fastfetch/pc-config.jsonc"
-fi
-if [[ -f "$FF_SRC" ]]; then
-    cp -f "$FF_SRC" "$HOME/.config/fastfetch/config.jsonc" || warn "Could not copy fastfetch config"
-    success "fastfetch config installed"
+    warn "Skipping fastfetch config copy (curl install — no local files)"
 fi
 
 # Alias for update per distro
@@ -252,8 +283,7 @@ case "$OS" in
     termux) UPDATE_ALIAS='pkg up -y' ;;
     *)      UPDATE_ALIAS='echo "Please update your system manually"' ;;
 esac
-sed -i "/^alias update=/d" "$HOME/.zshrc" 2>/dev/null || true
-echo "alias update='${UPDATE_ALIAS}'" >> "$HOME/.zshrc"
+# update alias is set inside the ALIASES marker block below
 
 
 # ─── Improved Default Shell Setup ─────────────────────────
@@ -306,18 +336,23 @@ insert_marker_block ~/.zshrc "FZF" '[[ -f /usr/share/fzf/key-bindings.zsh ]] && 
 [[ -f /usr/share/fzf/completion.zsh ]] && source /usr/share/fzf/completion.zsh
 [[ -n "${PREFIX:-}" && -f "$PREFIX/share/fzf/key-bindings.zsh" ]] && source "$PREFIX/share/fzf/key-bindings.zsh"'
 
-# Fastfetch (disabled by default; run manually if desired)
-insert_marker_block ~/.zshrc "FETCH" '# Fastfetch is installed but disabled by default to avoid
-# showing system info on every new terminal. To run manually, use:
+# Fastfetch — either run on startup or just install alias
+if [[ "$FASTFETCH_ON_START" = true ]]; then
+    insert_marker_block ~/.zshrc "FETCH" 'alias fastfetch-masu="fastfetch --config ~/.config/fastfetch/config.jsonc 2>/dev/null || true"
+fastfetch --config ~/.config/fastfetch/config.jsonc 2>/dev/null || true'
+else
+    insert_marker_block ~/.zshrc "FETCH" '# Fastfetch is installed but runs only when you call it manually.
+# Run:  fastfetch-masu
+# To enable on every terminal open, add this to your .zshrc:
 #   fastfetch --config ~/.config/fastfetch/config.jsonc
-# Or use the provided quick alias:
 alias fastfetch-masu="fastfetch --config ~/.config/fastfetch/config.jsonc 2>/dev/null || true"'
+fi
 
-# Aliases
-insert_marker_block ~/.zshrc "ALIASES" 'alias ll="ls -lah --color=auto"
-alias la="ls -A --color=auto"
-alias update="sudo pacman -Syu"  # Change based on OS if needed
-alias reload="source ~/.zshrc"'
+# Aliases — update alias uses the distro-correct command resolved above
+insert_marker_block ~/.zshrc "ALIASES" "alias ll=\"ls -lah --color=auto\"
+alias la=\"ls -A --color=auto\"
+alias update='${UPDATE_ALIAS}'
+alias reload=\"source ~/.zshrc\""
 
 success ".zshrc configured successfully"
 
@@ -329,6 +364,14 @@ echo -e "╚══════════════════════�
 echo ""
 echo -e "  ${GREEN}✓${RESET} ZSH + Powerlevel10k + Plugins"
 echo -e "  ${GREEN}✓${RESET} Theme: ${BOLD}$CHOSEN_THEME${RESET}"
+if [[ "$CHOSEN_THEME" = "wizard" ]]; then
+    echo -e "  ${CYAN}→${RESET} P10K wizard will run on your first ZSH session"
+fi
+if [[ "$FASTFETCH_ON_START" = true ]]; then
+    echo -e "  ${GREEN}✓${RESET} Fastfetch: runs on terminal open (alias: fastfetch-masu)"
+else
+    echo -e "  ${CYAN}→${RESET} Fastfetch: manual only — run ${BOLD}fastfetch-masu${RESET}"
+fi
 echo ""
 echo -e "${YELLOW}Note:${RESET} If ZSH doesn't start by default, check your terminal settings"
 echo -e "      (Edit → Preferences → Command → Uncheck custom command)"
