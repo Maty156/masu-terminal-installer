@@ -59,7 +59,7 @@ cat << 'EOF'
 ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝
 EOF
 echo -e "${CYAN}  Terminal Installer v7.1 — BlackArch Edition${RESET}"
-echo -e "${MAGENTA}  By Matyas Abraham | MASU Cyber Learning Project${RESET}"
+echo -e "${MAGENTA}  By Matyas Abraham | ${RESET}"
 echo ""
 
 # ─── Script Directory ─────────────────────────────────────
