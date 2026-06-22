@@ -224,14 +224,45 @@ fi
 
 # Plugins
 install_plugin() {
-    local repo=$1 dest="$HOME/.oh-my-zsh/custom/plugins/$(basename "$repo" .git)"
+    local repo=$1
+    local name="$(basename "$repo" .git)"
+    local dest="$HOME/.oh-my-zsh/custom/plugins/$name"
+
+    # A plugin only counts as "installed" if its main .plugin.zsh file exists.
+    # An empty/partial dir (from a prior interrupted run) must be re-cloned,
+    # otherwise oh-my-zsh will report "plugin not found" even though the
+    # folder exists.
+    if [[ -d "$dest" ]] && [[ ! -f "$dest/${name}.plugin.zsh" ]]; then
+        warn "$name looks incomplete — removing and re-cloning"
+        rm -rf "$dest"
+    fi
+
     if [[ ! -d "$dest" ]]; then
-        git clone --depth=1 "$repo" "$dest" || warn "Failed to clone $repo"
+        info "Cloning $name"
+        if git clone --depth=1 "$repo" "$dest"; then
+            success "$name installed"
+        else
+            warn "Failed to clone $name — plugin will be unavailable"
+            rm -rf "$dest"
+        fi
+    else
+        info "$name already installed"
     fi
 }
 install_plugin https://github.com/zsh-users/zsh-autosuggestions.git
 install_plugin https://github.com/zsh-users/zsh-syntax-highlighting.git
 install_plugin https://github.com/zsh-users/zsh-history-substring-search.git
+
+# Build the final plugin list from what actually installed successfully,
+# so .zshrc never references a plugin dir that isn't really there.
+ZSH_PLUGINS=(git)
+for p in zsh-autosuggestions zsh-syntax-highlighting zsh-history-substring-search; do
+    if [[ -f "$HOME/.oh-my-zsh/custom/plugins/$p/$p.plugin.zsh" ]]; then
+        ZSH_PLUGINS+=("$p")
+    else
+        warn "$p not available — skipping it in .zshrc plugins list"
+    fi
+done
 
 # Copy selected p10k config
 # For "wizard" theme, skip copying — p10k will auto-launch its interactive wizard
@@ -339,10 +370,12 @@ fi'
 # Base config
 # zsh-completions is loaded via fpath, NOT the plugins array — adding it to
 # plugins causes the "plugin not found" + extend_glob errors from OMZ.
-insert_marker_block ~/.zshrc "BASE" 'export ZSH="$HOME/.oh-my-zsh"
-ZSH_THEME="powerlevel10k/powerlevel10k"
-plugins=(git zsh-autosuggestions zsh-syntax-highlighting zsh-history-substring-search)
-source $ZSH/oh-my-zsh.sh'
+# ZSH_PLUGINS is built earlier from what actually cloned successfully, so
+# .zshrc never lists a plugin whose folder isn't really there.
+insert_marker_block ~/.zshrc "BASE" "export ZSH=\"\$HOME/.oh-my-zsh\"
+ZSH_THEME=\"powerlevel10k/powerlevel10k\"
+plugins=(${ZSH_PLUGINS[*]})
+source \$ZSH/oh-my-zsh.sh"
 
 # P10k
 insert_marker_block ~/.zshrc "P10K" '[[ -f ~/.p10k.zsh ]] && source ~/.p10k.zsh'
