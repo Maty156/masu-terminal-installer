@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================
-# MASU Terminal Installer v8.2 - BlackArch Edition
+# MASU Terminal Installer v8.3 - BlackArch Edition
 # Author: Matyas Abraham
 # Supports: Arch, BlackArch, Ubuntu, Debian, Fedora,
 #           OpenSUSE, Kali, Parrot OS, Termux
@@ -85,7 +85,7 @@ cat << 'EOF'
 ██║ ╚═╝ ██║██║  ██║███████║╚██████╔╝
 ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝
 EOF
-echo -e "${CYAN}  Terminal Installer v8.2 — BlackArch Edition${RESET}"
+echo -e "${CYAN}  Terminal Installer v8.3 — BlackArch Edition${RESET}"
 echo -e "${MAGENTA}  By Matyas Abraham | MASU Cyber Learning Project${RESET}"
 echo ""
 
@@ -99,15 +99,48 @@ if [[ ! -d "$SCRIPT_DIR" ]] || [[ "$SCRIPT_DIR" == "/" ]]; then
     SCRIPT_DIR=""
 fi
 
+# pick_with_fzf <prompt> <option1> <option2> ...
+# Shows an fzf picker if fzf is available, otherwise falls back to a plain
+# numbered read prompt. Echoes the chosen option's index (1-based) on stdout.
+pick_with_fzf() {
+    local prompt="$1"
+    shift
+    local opts=("$@")
+
+    if command -v fzf &>/dev/null; then
+        local chosen
+        chosen=$(printf '%s\n' "${opts[@]}" | fzf --height=~40% --layout=reverse \
+            --border=rounded --prompt="$prompt > " --header="↑↓ to move · Enter to select" \
+            --color="border:cyan,prompt:magenta,pointer:green,header:yellow" 2>/dev/null)
+        if [[ -n "$chosen" ]]; then
+            for i in "${!opts[@]}"; do
+                [[ "${opts[$i]}" == "$chosen" ]] && { echo "$((i+1))"; return 0; }
+            done
+        fi
+        # fzf was cancelled (Esc/Ctrl-C) — fall through to default below
+        echo "1"
+        return 0
+    fi
+
+    # Fallback: plain numbered prompt (no fzf available yet, e.g. very first run)
+    echo -e "${CYAN}$prompt${RESET}" >&2
+    local i
+    for i in "${!opts[@]}"; do
+        echo "  $((i+1))) ${opts[$i]}" >&2
+    done
+    local sel
+    read -rp "  Selection [1-${#opts[@]}, default 1]: " sel >&2
+    [[ "$sel" =~ ^[0-9]+$ ]] && (( sel >= 1 && sel <= ${#opts[@]} )) && echo "$sel" || echo "1"
+}
+
 # ─── Theme Selection ───────────────────────────────────────
 CHOSEN_THEME="minimal" # Default
-echo -e "${CYAN}Select Your MASU Theme Style:${RESET}"
-echo -e "  1) ${GREEN}MASU Minimal${RESET} (Fast, clean, mobile-optimized)"
-echo -e "  2) ${MAGENTA}MASU Cyber  ${RESET} (Neon colors, icon-heavy)"
-echo -e "  3) ${YELLOW}P10K Default${RESET} (Run interactive wizard)"
-read -rp "  Selection [1-3, default 1]: " theme_choice
+theme_idx=$(pick_with_fzf "Select Your MASU Theme Style" \
+    "MASU Minimal  (Fast, clean, mobile-optimized)" \
+    "MASU Cyber    (Neon colors, icon-heavy)" \
+    "P10K Default  (Run interactive wizard)")
 
-case "$theme_choice" in
+case "$theme_idx" in
     2) CHOSEN_THEME="cyber" ;;
     3) CHOSEN_THEME="wizard" ;;
     *) CHOSEN_THEME="minimal" ;;
@@ -117,8 +150,8 @@ info "Starting installation for theme: ${BOLD}$CHOSEN_THEME${RESET}"
 # ─── Fastfetch on startup preference ──────────────────────
 FASTFETCH_ON_START=false
 echo ""
-read -rp "  Show fastfetch info when a new terminal opens? (y/n, default n): " ff_choice
-[[ "$ff_choice" == "y" || "$ff_choice" == "Y" ]] && FASTFETCH_ON_START=true
+ff_idx=$(pick_with_fzf "Show fastfetch info when a new terminal opens?" "No" "Yes")
+[[ "$ff_idx" == "2" ]] && FASTFETCH_ON_START=true
 
 # ─── Root check ────────────────────────────────────────────
 if [[ $EUID -eq 0 ]] && [[ -z "${PREFIX:-}" ]]; then
