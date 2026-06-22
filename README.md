@@ -2,7 +2,7 @@
 
 ![Linux](https://img.shields.io/badge/platform-Linux-green)
 ![Bash](https://img.shields.io/badge/language-Bash-blue)
-![Version](https://img.shields.io/badge/version-v8.0-blue)
+![Version](https://img.shields.io/badge/version-v8.1-blue)
 ![Open Source](https://img.shields.io/badge/license-MIT-orange)
 ![Status](https://img.shields.io/badge/status-active-success)
 
@@ -148,6 +148,16 @@ masu-terminal-installer
 Setting up a modern ZSH environment manually can take time, especially for new Linux users.
 
 This project automates the entire setup process so anyone can install a professional terminal environment quickly.
+
+---
+
+# Changelog
+
+### v8.1
+* Fixed `plugin not found` warnings for zsh-autosuggestions, zsh-syntax-highlighting, and zsh-history-substring-search on re-runs. The installer now verifies each plugin's `.plugin.zsh` file (not just the folder) before skipping its clone, and `.zshrc` is written with only the plugins that actually installed successfully.
+
+### v8.0
+* BlackArch Edition — multi-distro support, theme selection, fastfetch opt-in/out.
 
 ---
 

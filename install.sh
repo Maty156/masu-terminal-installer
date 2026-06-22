@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================
-# MASU Terminal Installer v8.0 - BlackArch Edition
+# MASU Terminal Installer v8.1 - BlackArch Edition
 # Author: Matyas Abraham
 # Supports: Arch, BlackArch, Ubuntu, Debian, Fedora,
 #           OpenSUSE, Kali, Parrot OS, Termux
@@ -58,7 +58,7 @@ cat << 'EOF'
 ██║ ╚═╝ ██║██║  ██║███████║╚██████╔╝
 ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝
 EOF
-echo -e "${CYAN}  Terminal Installer v8.0 — BlackArch Edition${RESET}"
+echo -e "${CYAN}  Terminal Installer v8.1 — BlackArch Edition${RESET}"
 echo -e "${MAGENTA}  By Matyas Abraham | MASU Cyber Learning Project${RESET}"
 echo ""
 
