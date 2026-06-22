@@ -2,7 +2,7 @@
 
 ![Linux](https://img.shields.io/badge/platform-Linux-green)
 ![Bash](https://img.shields.io/badge/language-Bash-blue)
-![Version](https://img.shields.io/badge/version-v8.1-blue)
+![Version](https://img.shields.io/badge/version-v8.2-blue)
 ![Open Source](https://img.shields.io/badge/license-MIT-orange)
 ![Status](https://img.shields.io/badge/status-active-success)
 
@@ -23,6 +23,8 @@ The script automatically detects your operating system and installs everything r
 ✔ **Integrated FZF** — fuzzy history search and navigation
 ✔ **Custom Fastfetch** — lightweight, compact MASU-themed info
 ✔ **Per-distro Update Alias** — `update` command works correctly on every OS
+✔ **Automatic Nerd Font Install** — MesloLGS NF installed for correct P10K icon rendering
+✔ **Retry on Flaky Connections** — all clones retry automatically on network failure
 ✔ Works on Linux and Termux
 
 ---
@@ -108,6 +110,7 @@ fastfetch --config ~/.config/fastfetch/config.jsonc
 * ZSH History Substring Search
 * fzf (fuzzy finder with key bindings)
 * fastfetch (system info display)
+* MesloLGS NF (Nerd Font for P10K icons — skipped on Termux)
 
 ---
 
@@ -153,6 +156,10 @@ This project automates the entire setup process so anyone can install a professi
 
 # Changelog
 
+### v8.2
+* Added automatic Nerd Font (MesloLGS NF) installation so P10K icons render correctly out of the box. Skipped on Termux.
+* All `git clone` steps (oh-my-zsh, p10k, plugins) now retry up to 3 times with backoff on network failure instead of failing on the first hiccup — useful on slow or unstable connections.
+
 ### v8.1
 * Fixed `plugin not found` warnings for zsh-autosuggestions, zsh-syntax-highlighting, and zsh-history-substring-search on re-runs. The installer now verifies each plugin's `.plugin.zsh` file (not just the folder) before skipping its clone, and `.zshrc` is written with only the plugins that actually installed successfully.
 
@@ -166,7 +173,7 @@ This project automates the entire setup process so anyone can install a professi
 * loading animations during cloning steps
 * more theme presets
 * support for additional distributions
-* automatic font installation for Nerd Fonts
+* `--repair` mode to re-validate all components, not just plugins
 
 ---
 
