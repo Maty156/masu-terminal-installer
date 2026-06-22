@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================
-# MASU Terminal Installer v8.1 - BlackArch Edition
+# MASU Terminal Installer v8.2 - BlackArch Edition
 # Author: Matyas Abraham
 # Supports: Arch, BlackArch, Ubuntu, Debian, Fedora,
 #           OpenSUSE, Kali, Parrot OS, Termux
@@ -47,6 +47,33 @@ spinner() {
     printf "\r"
 }
 
+# git_clone_retry <repo_url> <dest_dir> [extra git-clone args...]
+# Retries a shallow clone up to 3 times with backoff, since flaky/limited
+# internet connections are common for this script's users. Returns
+# non-zero only after all attempts fail, leaving no partial directory
+# behind so callers can safely re-check with [[ -d "$dest" ]].
+git_clone_retry() {
+    local repo="$1" dest="$2"
+    shift 2
+    local extra_args=("$@")
+    local attempt=1 max_attempts=3 delay=3
+
+    while (( attempt <= max_attempts )); do
+        if [[ $attempt -gt 1 ]]; then
+            warn "Retrying clone of $(basename "$repo") (attempt $attempt/$max_attempts)..."
+        fi
+        if git clone --depth=1 "${extra_args[@]}" "$repo" "$dest" 2>/dev/null; then
+            return 0
+        fi
+        rm -rf "$dest"
+        ((attempt++))
+        [[ $attempt -le $max_attempts ]] && sleep "$delay"
+    done
+
+    warn "Could not clone $(basename "$repo") after $max_attempts attempts (check your internet connection)"
+    return 1
+}
+
 # ─── Banner ────────────────────────────────────────────────
 clear
 echo -e "${GREEN}${BOLD}"
@@ -58,7 +85,7 @@ cat << 'EOF'
 ██║ ╚═╝ ██║██║  ██║███████║╚██████╔╝
 ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝
 EOF
-echo -e "${CYAN}  Terminal Installer v8.1 — BlackArch Edition${RESET}"
+echo -e "${CYAN}  Terminal Installer v8.2 — BlackArch Edition${RESET}"
 echo -e "${MAGENTA}  By Matyas Abraham | MASU Cyber Learning Project${RESET}"
 echo ""
 
@@ -209,7 +236,7 @@ mkdir -p "$HOME/.config/fastfetch"
 # Oh My Zsh
 if [[ ! -d "$HOME/.oh-my-zsh" ]]; then
     info "Installing Oh My Zsh"
-    git clone --depth=1 https://github.com/ohmyzsh/ohmyzsh.git "$HOME/.oh-my-zsh" || warn "Could not clone oh-my-zsh"
+    git_clone_retry https://github.com/ohmyzsh/ohmyzsh.git "$HOME/.oh-my-zsh"
 else
     info "Oh My Zsh already installed"
 fi
@@ -217,7 +244,7 @@ fi
 # Powerlevel10k
 if [[ ! -d "$HOME/.oh-my-zsh/custom/themes/powerlevel10k" ]]; then
     info "Installing Powerlevel10k"
-    git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "$HOME/.oh-my-zsh/custom/themes/powerlevel10k" || warn "Could not clone p10k"
+    git_clone_retry https://github.com/romkatv/powerlevel10k.git "$HOME/.oh-my-zsh/custom/themes/powerlevel10k"
 else
     info "Powerlevel10k already present"
 fi
@@ -239,11 +266,10 @@ install_plugin() {
 
     if [[ ! -d "$dest" ]]; then
         info "Cloning $name"
-        if git clone --depth=1 "$repo" "$dest"; then
+        if git_clone_retry "$repo" "$dest"; then
             success "$name installed"
         else
-            warn "Failed to clone $name — plugin will be unavailable"
-            rm -rf "$dest"
+            warn "$name will be unavailable"
         fi
     else
         info "$name already installed"
@@ -285,6 +311,48 @@ else
     # Remove any existing .p10k.zsh so the wizard triggers cleanly
     rm -f "$HOME/.p10k.zsh"
     info "P10K wizard will launch automatically on your first ZSH session"
+fi
+
+# ─── Nerd Font (MesloLGS NF) ───────────────────────────────
+# Powerlevel10k's icons/glyphs render as broken boxes without this font.
+# Skipped on Termux — there's no desktop font manager to register it with,
+# and Termux's own font is set separately via its own settings.
+if [[ "$OS" != "termux" ]]; then
+    step "Installing Nerd Font (MesloLGS NF)"
+    FONT_DIR="$HOME/.local/share/fonts"
+    mkdir -p "$FONT_DIR"
+
+    declare -A FONT_FILES=(
+        ["MesloLGS NF Regular.ttf"]="https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Regular.ttf"
+        ["MesloLGS NF Bold.ttf"]="https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold.ttf"
+        ["MesloLGS NF Italic.ttf"]="https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Italic.ttf"
+        ["MesloLGS NF Bold Italic.ttf"]="https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold%20Italic.ttf"
+    )
+
+    FONT_OK=true
+    for fname in "${!FONT_FILES[@]}"; do
+        fdest="$FONT_DIR/$fname"
+        if [[ -s "$fdest" ]]; then
+            continue
+        fi
+        if ! curl -fsSL --retry 3 --retry-delay 2 -o "$fdest" "${FONT_FILES[$fname]}"; then
+            warn "Could not download font: $fname"
+            rm -f "$fdest"
+            FONT_OK=false
+        fi
+    done
+
+    if command -v fc-cache &>/dev/null; then
+        fc-cache -f "$FONT_DIR" &>/dev/null || true
+    fi
+
+    if [[ "$FONT_OK" = true ]]; then
+        success "MesloLGS NF installed"
+        info "Set your terminal's font to 'MesloLGS NF' for icons to render correctly"
+    else
+        warn "Font install incomplete — set your terminal font manually if icons look broken"
+        warn "Download: https://github.com/romkatv/powerlevel10k#manual-font-installation"
+    fi
 fi
 
 # Copy fastfetch config based on environment
