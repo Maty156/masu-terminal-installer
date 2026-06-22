@@ -1,13 +1,26 @@
 #!/bin/bash
 
 # ============================================================
-# MASU Terminal Installer v8.3 - BlackArch Edition
+# MASU Terminal Installer v8.4 - BlackArch Edition
 # Author: Matyas Abraham
 # Supports: Arch, BlackArch, Ubuntu, Debian, Fedora,
 #           OpenSUSE, Kali, Parrot OS, Termux
 # ============================================================
 
 set -eo pipefail
+
+# ─── Flags ─────────────────────────────────────────────────
+SKIP_FONTS=false
+for arg in "$@"; do
+    case "$arg" in
+        --no-fonts) SKIP_FONTS=true ;;
+        -h|--help)
+            echo "Usage: ./install.sh [--no-fonts]"
+            echo "  --no-fonts   Skip the Nerd Font download (useful on slow/limited connections)"
+            exit 0
+            ;;
+    esac
+done
 
 # ─── Cleanup Trap ──────────────────────────────────────────
 cleanup() {
@@ -85,7 +98,7 @@ cat << 'EOF'
 ██║ ╚═╝ ██║██║  ██║███████║╚██████╔╝
 ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝
 EOF
-echo -e "${CYAN}  Terminal Installer v8.3 — BlackArch Edition${RESET}"
+echo -e "${CYAN}  Terminal Installer v8.4 — BlackArch Edition${RESET}"
 echo -e "${MAGENTA}  By Matyas Abraham | MASU Cyber Learning Project${RESET}"
 echo ""
 
@@ -350,8 +363,9 @@ fi
 # Powerlevel10k's icons/glyphs render as broken boxes without this font.
 # Skipped on Termux — there's no desktop font manager to register it with,
 # and Termux's own font is set separately via its own settings.
-if [[ "$OS" != "termux" ]]; then
+if [[ "$OS" != "termux" ]] && [[ "$SKIP_FONTS" != true ]]; then
     step "Installing Nerd Font (MesloLGS NF)"
+    info "Optional — only affects icon rendering, never required for the shell to work"
     FONT_DIR="$HOME/.local/share/fonts"
     mkdir -p "$FONT_DIR"
 
@@ -363,15 +377,29 @@ if [[ "$OS" != "termux" ]]; then
     )
 
     FONT_OK=true
+    FONT_NET_DEAD=false
     for fname in "${!FONT_FILES[@]}"; do
         fdest="$FONT_DIR/$fname"
         if [[ -s "$fdest" ]]; then
             continue
         fi
-        if ! curl -fsSL --retry 3 --retry-delay 2 -o "$fdest" "${FONT_FILES[$fname]}"; then
-            warn "Could not download font: $fname"
+        if [[ "$FONT_NET_DEAD" = true ]]; then
+            FONT_OK=false
+            continue
+        fi
+        info "Downloading $fname"
+        # --connect-timeout / --max-time cap EACH attempt so a slow or stalled
+        # connection can never hang the installer — it just fails fast and
+        # moves on, instead of sitting there looking frozen.
+        if ! curl -fsSL --connect-timeout 5 --max-time 10 --retry 1 --retry-delay 1 \
+                -o "$fdest" "${FONT_FILES[$fname]}"; then
+            warn "Could not download $fname (timed out or unreachable) — skipping fonts"
             rm -f "$fdest"
             FONT_OK=false
+            # If the very first download can't even connect, the network is
+            # almost certainly unreachable right now — don't make the user
+            # wait through 3 more identical timeouts for the other font files.
+            FONT_NET_DEAD=true
         fi
     done
 
@@ -383,9 +411,11 @@ if [[ "$OS" != "termux" ]]; then
         success "MesloLGS NF installed"
         info "Set your terminal's font to 'MesloLGS NF' for icons to render correctly"
     else
-        warn "Font install incomplete — set your terminal font manually if icons look broken"
-        warn "Download: https://github.com/romkatv/powerlevel10k#manual-font-installation"
+        warn "Font install incomplete — this is cosmetic only, your shell will work fine without it"
+        warn "Set it up later: https://github.com/romkatv/powerlevel10k#manual-font-installation"
     fi
+elif [[ "$SKIP_FONTS" = true ]]; then
+    info "Skipping Nerd Font install (--no-fonts) — icons won't render but everything else works"
 fi
 
 # Copy fastfetch config based on environment
