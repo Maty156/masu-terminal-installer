@@ -2,7 +2,7 @@
 
 ![Linux](https://img.shields.io/badge/platform-Linux-green)
 ![Bash](https://img.shields.io/badge/language-Bash-blue)
-![Version](https://img.shields.io/badge/version-v8.2-blue)
+![Version](https://img.shields.io/badge/version-v8.3-blue)
 ![Open Source](https://img.shields.io/badge/license-MIT-orange)
 ![Status](https://img.shields.io/badge/status-active-success)
 
@@ -25,6 +25,7 @@ The script automatically detects your operating system and installs everything r
 ✔ **Per-distro Update Alias** — `update` command works correctly on every OS
 ✔ **Automatic Nerd Font Install** — MesloLGS NF installed for correct P10K icon rendering
 ✔ **Retry on Flaky Connections** — all clones retry automatically on network failure
+✔ **Interactive fzf Menus** — arrow-key theme/option picker instead of typing numbers (falls back to plain prompts if fzf isn't installed yet)
 ✔ Works on Linux and Termux
 
 ---
@@ -155,6 +156,9 @@ This project automates the entire setup process so anyone can install a professi
 ---
 
 # Changelog
+
+### v8.3
+* Theme and fastfetch prompts now use an interactive fzf picker (arrow keys + Enter) instead of typing a number. Falls back automatically to the old plain-text prompt if fzf isn't installed yet (e.g. very first run before dependencies are installed).
 
 ### v8.2
 * Added automatic Nerd Font (MesloLGS NF) installation so P10K icons render correctly out of the box. Skipped on Termux.
