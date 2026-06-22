@@ -2,7 +2,7 @@
 
 ![Linux](https://img.shields.io/badge/platform-Linux-green)
 ![Bash](https://img.shields.io/badge/language-Bash-blue)
-![Version](https://img.shields.io/badge/version-v8.3-blue)
+![Version](https://img.shields.io/badge/version-v8.4-blue)
 ![Open Source](https://img.shields.io/badge/license-MIT-orange)
 ![Status](https://img.shields.io/badge/status-active-success)
 
@@ -66,6 +66,14 @@ bash <(curl -s https://raw.githubusercontent.com/Maty156/masu-terminal-installer
 ```
 
 > **Note:** The curl one-liner skips copying local config files (p10k themes, fastfetch configs) since there are no local files to copy. Theme 1 and 2 will fall back to defaults, and fastfetch will use system defaults. For the full experience use the clone method above.
+
+## On a slow or limited connection
+
+Skip the Nerd Font download (cosmetic only) to speed things up:
+
+```
+./install.sh --no-fonts
+```
 
 ---
 
@@ -156,6 +164,10 @@ This project automates the entire setup process so anyone can install a professi
 ---
 
 # Changelog
+
+### v8.4
+* Fixed the installer appearing to hang/freeze on "Installing Nerd Font" on slow or restricted connections. Font downloads now have a hard connect/total timeout, and the step gives up immediately after the first failed connection instead of retrying all 4 font files individually. Fonts are purely cosmetic — the shell works fully without them.
+* Added a `--no-fonts` flag to skip the font step entirely (`./install.sh --no-fonts`), useful on slow or data-limited connections.
 
 ### v8.3
 * Theme and fastfetch prompts now use an interactive fzf picker (arrow keys + Enter) instead of typing a number. Falls back automatically to the old plain-text prompt if fzf isn't installed yet (e.g. very first run before dependencies are installed).
