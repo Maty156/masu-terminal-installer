@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================
-# MASU Terminal Installer v8.4 - BlackArch Edition
+# MASU Terminal Installer v8.6 - BlackArch Edition
 # Author: Matyas Abraham
 # Supports: Arch, BlackArch, Ubuntu, Debian, Fedora,
 #           OpenSUSE, Kali, Parrot OS, Termux
@@ -25,7 +25,12 @@ done
 # ─── Cleanup Trap ──────────────────────────────────────────
 cleanup() {
     local exit_code=$?
-    [[ $exit_code -ne 0 ]] && error "Installation interrupted! Check errors above."
+    command -v gauge_stop &>/dev/null && gauge_stop 2>/dev/null || true
+    [[ -n "${SUDO_KEEPALIVE_PID:-}" ]] && kill "$SUDO_KEEPALIVE_PID" 2>/dev/null || true
+    if [[ $exit_code -ne 0 ]]; then
+        echo -e "${RED:-}${BOLD:-}[FAIL] Installation interrupted!${RESET:-}"
+        [[ -n "${INSTALL_LOG:-}" ]] && echo -e "${YELLOW:-}Check the log for details: ${INSTALL_LOG}${RESET:-}"
+    fi
     exit $exit_code
 }
 trap cleanup EXIT INT TERM
@@ -40,12 +45,101 @@ MAGENTA="\e[35m"
 BOLD="\e[1m"
 RESET="\e[0m"
 
-# ─── Helpers ───────────────────────────────────────────────
-info()    { echo -e "${CYAN}[INFO]${RESET} $1"; }
-success() { echo -e "${GREEN}[  OK]${RESET} $1"; }
-warn()    { echo -e "${YELLOW}[WARN]${RESET} $1"; }
-error()   { echo -e "${RED}[FAIL]${RESET} $1"; }
-step()    { echo -e "\n${BOLD}${BLUE}━━━ $1 ━━━${RESET}"; }
+# ─── Logging ────────────────────────────────────────────────
+# Everything still gets logged in full detail to this file. The on-screen
+# whiptail gauge only shows short status lines, so if anything fails you
+# can always check exactly what happened here.
+INSTALL_LOG="$HOME/.masu-install.log"
+: > "$INSTALL_LOG"
+log_line() { echo "$(date '+%H:%M:%S') $1" >> "$INSTALL_LOG"; }
+
+info()    { log_line "[INFO] $1"; }
+success() { log_line "[ OK ] $1"; }
+warn()    { log_line "[WARN] $1"; }
+error()   { log_line "[FAIL] $1"; }
+
+# pre_msg <color> <label> <text> — for the handful of messages that happen
+# BEFORE the gauge starts (curl-install warning, root check) and need to be
+# seen on screen right away, not buried in the log.
+pre_msg() {
+    local color="$1" label="$2" text="$3"
+    echo -e "${color}[${label}]${RESET} $text"
+    log_line "[$label] $text"
+}
+
+# ─── Full-screen TUI gauge ──────────────────────────────────
+# A real installer-style progress screen, built with whiptail's --gauge
+# widget. The gauge runs as its own background process reading percentage
+# updates from a FIFO; install steps below write into that FIFO as they
+# complete, so the bar reflects real progress, not a fake animation.
+# Falls back to plain step/info text (no gauge) if whiptail isn't available
+# or stdout isn't a real terminal.
+TOTAL_STEPS=6  # Detecting System, Dependencies, OMZ+P10K+Plugins, Fastfetch, Shell, .zshrc
+              # (+1 added later for the Nerd Font step, once we know if it'll actually run)
+CURRENT_STEP=0
+GAUGE_ENABLED=false
+GAUGE_PID=""
+GAUGE_FIFO=""
+
+gauge_start() {
+    [[ -t 1 ]] || return 0
+    command -v whiptail &>/dev/null || return 0
+    GAUGE_FIFO="$(mktemp -u)"
+    mkfifo "$GAUGE_FIFO" || return 0
+    whiptail --backtitle "MASU Terminal Installer v8.6 — BlackArch Edition" \
+        --title " Installing " --gauge "Starting installation..." 10 70 0 \
+        < "$GAUGE_FIFO" &
+    GAUGE_PID=$!
+    exec 3>"$GAUGE_FIFO"
+    GAUGE_ENABLED=true
+}
+
+gauge_update() {
+    local pct="$1" msg="$2"
+    log_line "[STEP] ($pct%) $msg"
+    if [[ "$GAUGE_ENABLED" = true ]]; then
+        echo "$pct" >&3
+        echo "XXX" >&3
+        echo "$msg" >&3
+        echo "XXX" >&3
+    else
+        echo -e "${BOLD}${BLUE}[${pct}%]${RESET} $msg"
+    fi
+}
+
+gauge_stop() {
+    [[ "$GAUGE_ENABLED" = true ]] || return 0
+    exec 3>&- 2>/dev/null
+    # Give whiptail a moment to exit on its own once the FIFO write-end
+    # closes; if it doesn't, kill it directly so cleanup can never hang.
+    local waited=0
+    while kill -0 "$GAUGE_PID" 2>/dev/null && [[ "$waited" -lt 20 ]]; do
+        sleep 0.1
+        waited=$((waited + 1))
+    done
+    kill -0 "$GAUGE_PID" 2>/dev/null && kill -9 "$GAUGE_PID" 2>/dev/null
+    wait "$GAUGE_PID" 2>/dev/null || true
+    rm -f "$GAUGE_FIFO"
+    GAUGE_ENABLED=false
+}
+
+# step <name> — advances to the next step and updates the gauge percentage.
+step() {
+    CURRENT_STEP=$((CURRENT_STEP + 1))
+    local pct=$(( CURRENT_STEP * 100 / TOTAL_STEPS ))
+    (( pct > 100 )) && pct=100
+    gauge_update "$pct" "$1"
+}
+
+# gauge_msg <text> — updates just the status line shown in the gauge
+# without advancing the percentage. Used for sub-steps within a longer
+# phase (e.g. "Cloning oh-my-zsh..." then "Cloning plugins...") so the
+# screen doesn't sit on one message for a long stretch.
+gauge_msg() {
+    local pct=$(( CURRENT_STEP * 100 / TOTAL_STEPS ))
+    (( pct > 100 )) && pct=100
+    gauge_update "$pct" "$1"
+}
 
 spinner() {
     local pid=$1
@@ -79,7 +173,7 @@ git_clone_retry() {
             return 0
         fi
         rm -rf "$dest"
-        ((attempt++))
+        attempt=$((attempt + 1))
         [[ $attempt -le $max_attempts ]] && sleep "$delay"
     done
 
@@ -98,7 +192,7 @@ cat << 'EOF'
 ██║ ╚═╝ ██║██║  ██║███████║╚██████╔╝
 ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝
 EOF
-echo -e "${CYAN}  Terminal Installer v8.4 — BlackArch Edition${RESET}"
+echo -e "${CYAN}  Terminal Installer v8.6 — BlackArch Edition${RESET}"
 echo -e "${MAGENTA}  By Matyas Abraham | MASU Cyber Learning Project${RESET}"
 echo ""
 
@@ -107,8 +201,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd 2>/dev/null)" || SCRIPT
 # When run via bash <(curl ...), BASH_SOURCE[0] is a pipe — configs can't be copied.
 # In that case, warn the user and skip config copy steps gracefully.
 if [[ ! -d "$SCRIPT_DIR" ]] || [[ "$SCRIPT_DIR" == "/" ]]; then
-    warn "Running from pipe/curl — local config files (p10k, fastfetch) will be skipped."
-    warn "For full setup, clone the repo and run: ./install.sh"
+    echo -e "${YELLOW}[WARN]${RESET} Running from pipe/curl — local config files (p10k, fastfetch) will be skipped."
+    echo -e "${YELLOW}[WARN]${RESET} For full setup, clone the repo and run: ./install.sh"
     SCRIPT_DIR=""
 fi
 
@@ -168,9 +262,47 @@ ff_idx=$(pick_with_fzf "Show fastfetch info when a new terminal opens?" "No" "Ye
 
 # ─── Root check ────────────────────────────────────────────
 if [[ $EUID -eq 0 ]] && [[ -z "${PREFIX:-}" ]]; then
-    warn "Running as root is NOT recommended."
+    pre_msg "$YELLOW" "WARN" "Running as root is NOT recommended."
     read -rp "  Continue as root? (y/n): " rootok
-    [[ "$rootok" != "y" ]] && { info "Aborted."; exit 0; }
+    [[ "$rootok" != "y" ]] && { pre_msg "$CYAN" "INFO" "Aborted."; exit 0; }
+fi
+
+# ─── Warm up sudo before the gauge takes over the screen ──
+# Several steps later (package installs, chsh/usermod) need sudo. If sudo
+# hasn't cached credentials yet, its password prompt would otherwise be
+# silently swallowed once output is redirected into the log for the gauge.
+# Skipped when already root or on Termux (no sudo there).
+if [[ $EUID -ne 0 ]] && [[ -z "${PREFIX:-}" ]] && command -v sudo &>/dev/null; then
+    echo -e "${CYAN}[INFO]${RESET} This installer needs sudo for a few steps — you may be asked for your password now."
+    sudo -v || { echo -e "${RED}[FAIL]${RESET} Could not get sudo access. Re-run and enter your password when prompted."; exit 1; }
+    # Keep credentials alive in the background for the rest of the run, since
+    # a slow/retried install can easily outlast sudo's default cache timeout.
+    # Killed automatically by the cleanup trap on exit.
+    ( while true; do sudo -v; sleep 60; done ) &>/dev/null &
+    SUDO_KEEPALIVE_PID=$!
+fi
+
+# ─── Ensure whiptail is available for the progress gauge ──
+# All prompts are done at this point, so this is the right moment to get
+# whiptail installed (if missing) before switching to the full-screen gauge.
+# Skipped entirely on Termux: that platform sometimes only provides the
+# `dialog` package, whose whiptail-compatibility symlink doesn't fully
+# match whiptail's flag syntax — better to just keep plain text there.
+if [[ -z "${PREFIX:-}" ]] || [[ "$PREFIX" != *"com.termux"* ]]; then
+    if ! command -v whiptail &>/dev/null; then
+        pre_msg "$CYAN" "INFO" "Setting up the installer screen..."
+        if command -v pacman &>/dev/null; then
+            sudo pacman -Sy --noconfirm --needed libnewt &>>"$INSTALL_LOG" || true
+        elif command -v apt-get &>/dev/null; then
+            sudo apt-get update -qq &>>"$INSTALL_LOG" || true
+            sudo apt-get install -y whiptail &>>"$INSTALL_LOG" || true
+        elif command -v dnf &>/dev/null; then
+            sudo dnf install -y newt &>>"$INSTALL_LOG" || true
+        elif command -v zypper &>/dev/null; then
+            sudo zypper install -y newt &>>"$INSTALL_LOG" || true
+        fi
+    fi
+    gauge_start
 fi
 
 # ─── OS Detection ──────────────────────────────────────────
@@ -217,11 +349,22 @@ fi
 
 success "Detected: ${BOLD}$DISTRO_LABEL${RESET}"
 
+# Now that OS and --no-fonts are both known, account for the Nerd Font step
+# if it will actually run, so the progress bar still reaches 100% exactly.
+if [[ "$OS" != "termux" ]] && [[ "$SKIP_FONTS" != true ]]; then
+    TOTAL_STEPS=$((TOTAL_STEPS + 1))
+fi
+
 # ─── Install Dependencies & Tools ──────────────────────────
 step "Installing Dependencies and core tools"
 
-# Determine if we should prefix commands with sudo
-SUDO_CMD="sudo"
+# Determine if we should prefix commands with sudo.
+# -n (non-interactive): by this point the gauge has taken over the screen,
+# so a password prompt would be invisible. sudo was already warmed up
+# before the gauge started and is kept alive in the background, so this
+# should always succeed without prompting; -n just makes failure fast and
+# visible (via the log) instead of an invisible hang if it somehow isn't.
+SUDO_CMD="sudo -n"
 if [[ $EUID -eq 0 ]] || [[ "$OS" = "termux" ]]; then
     SUDO_CMD=""
 fi
@@ -230,21 +373,21 @@ install_packages() {
     local pkgs=("${@}")
     case "$OS" in
         termux)
-            pkg update -y
-            pkg install -y "${pkgs[@]}"
+            pkg update -y &>>"$INSTALL_LOG"
+            pkg install -y "${pkgs[@]}" &>>"$INSTALL_LOG"
             ;;
         arch)
-            ${SUDO_CMD} pacman -Sy --noconfirm --needed "${pkgs[@]}"
+            ${SUDO_CMD} pacman -Sy --noconfirm --needed "${pkgs[@]}" &>>"$INSTALL_LOG"
             ;;
         debian)
-            ${SUDO_CMD} apt-get update -qq
-            ${SUDO_CMD} apt-get install -y "${pkgs[@]}"
+            ${SUDO_CMD} apt-get update -qq &>>"$INSTALL_LOG"
+            ${SUDO_CMD} apt-get install -y "${pkgs[@]}" &>>"$INSTALL_LOG"
             ;;
         fedora)
-            ${SUDO_CMD} dnf install -y "${pkgs[@]}"
+            ${SUDO_CMD} dnf install -y "${pkgs[@]}" &>>"$INSTALL_LOG"
             ;;
         opensuse)
-            ${SUDO_CMD} zypper install -y "${pkgs[@]}"
+            ${SUDO_CMD} zypper install -y "${pkgs[@]}" &>>"$INSTALL_LOG"
             ;;
         *)
             warn "Unknown package manager for OS=$OS. Please install: ${pkgs[*]}"
@@ -264,6 +407,7 @@ done
 
 if [[ ${#MISSING[@]} -gt 0 ]]; then
     info "Missing tools: ${MISSING[*]}"
+    gauge_msg "Installing: ${MISSING[*]}..."
     if ! install_packages "${MISSING[@]}"; then
         warn "Automatic package installation failed. Please install these manually: ${MISSING[*]}"
     else
@@ -282,6 +426,7 @@ mkdir -p "$HOME/.config/fastfetch"
 # Oh My Zsh
 if [[ ! -d "$HOME/.oh-my-zsh" ]]; then
     info "Installing Oh My Zsh"
+    gauge_msg "Cloning Oh My Zsh..."
     git_clone_retry https://github.com/ohmyzsh/ohmyzsh.git "$HOME/.oh-my-zsh"
 else
     info "Oh My Zsh already installed"
@@ -290,6 +435,7 @@ fi
 # Powerlevel10k
 if [[ ! -d "$HOME/.oh-my-zsh/custom/themes/powerlevel10k" ]]; then
     info "Installing Powerlevel10k"
+    gauge_msg "Cloning Powerlevel10k theme..."
     git_clone_retry https://github.com/romkatv/powerlevel10k.git "$HOME/.oh-my-zsh/custom/themes/powerlevel10k"
 else
     info "Powerlevel10k already present"
@@ -312,6 +458,7 @@ install_plugin() {
 
     if [[ ! -d "$dest" ]]; then
         info "Cloning $name"
+        gauge_msg "Cloning plugin: $name..."
         if git_clone_retry "$repo" "$dest"; then
             success "$name installed"
         else
@@ -419,6 +566,7 @@ elif [[ "$SKIP_FONTS" = true ]]; then
 fi
 
 # Copy fastfetch config based on environment
+step "Configuring Fastfetch"
 if [[ -n "$SCRIPT_DIR" ]]; then
     if [[ "$OS" = "termux" ]] || [[ "$CHOSEN_THEME" = "minimal" ]]; then
         FF_SRC="$SCRIPT_DIR/configs/fastfetch/mobile-config.jsonc"
@@ -450,25 +598,32 @@ esac
 # ─── Improved Default Shell Setup ─────────────────────────
 step "Setting Default Shell"
 
-ZSH_PATH=$(command -v zsh)
+ZSH_PATH=$(command -v zsh || true)
 
-if [[ "$OS" = "termux" ]]; then
+if [[ -z "$ZSH_PATH" ]]; then
+    warn "zsh was not found on this system — skipping default shell change"
+    warn "Install zsh manually, then re-run, or set it as your shell yourself"
+elif [[ "$OS" = "termux" ]]; then
     # Remove any existing exec zsh line to avoid duplicates, then add it
     sed -i '/^exec zsh/d' ~/.bashrc 2>/dev/null || true
     echo 'exec zsh' >> ~/.bashrc
     success "Termux configured to use ZSH"
 else
     SHELL_CHANGED=false
-    if sudo usermod -s "$ZSH_PATH" "$USER" 2>/dev/null; then
+    # -n / --non-interactive: never prompt for a password here. The gauge
+    # has already taken over the screen, so a password prompt would be
+    # invisible and look like a hang. sudo was already warmed up earlier
+    # (and is kept alive in the background) — if it's somehow not cached
+    # by now, fail fast and tell the user instead of hanging silently.
+    if sudo -n usermod -s "$ZSH_PATH" "$USER" &>>"$INSTALL_LOG"; then
         success "Default shell set to ZSH (usermod) — takes effect on next login"
         SHELL_CHANGED=true
-    elif sudo chsh -s "$ZSH_PATH" "$USER" 2>/dev/null; then
+    elif sudo -n chsh -s "$ZSH_PATH" "$USER" &>>"$INSTALL_LOG"; then
         success "Default shell set to ZSH (chsh) — takes effect on next login"
         SHELL_CHANGED=true
     else
         warn "Could not set ZSH as default shell automatically"
-        warn "Run this manually then log out and back in:"
-        echo -e "   sudo usermod -s $ZSH_PATH \$USER"
+        warn "Run this manually then log out and back in: sudo usermod -s $ZSH_PATH \$USER"
     fi
 
     # Regardless of whether usermod worked, switch the current session to ZSH now
@@ -537,6 +692,8 @@ alias reload=\"source ~/.zshrc\""
 success ".zshrc configured successfully"
 
 # ─── Final Message ────────────────────────────────────────
+gauge_update 100 "Done!"
+gauge_stop
 echo ""
 echo -e "${GREEN}${BOLD}╔══════════════════════════════════════╗"
 echo -e "║   MASU Installation Complete! ✓      ║"
@@ -559,5 +716,7 @@ echo -e "  2. Or log out and back in — ZSH will be your default shell"
 if [[ "$CHOSEN_THEME" = "wizard" ]]; then
     echo -e "  3. The P10K wizard will launch automatically on your first ZSH session"
 fi
+echo ""
+echo -e "${CYAN}Full install log: ${INSTALL_LOG}${RESET}"
 echo ""
 echo -e "${MAGENTA}MASU Cyber Learning Project — Stay Sharp!${RESET}"
