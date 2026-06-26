@@ -33,8 +33,7 @@ The script automatically detects your operating system and installs everything r
 ✔ **Live Progress Bar** — full-screen whiptail gauge (with a detailed log file) tracks install progress with real percentages, falling back to plain step text if whiptail isn't available
 <<<<<<< HEAD
 ✔ **Optional Mouse-Driven GUI** — `masu_installer.py` gives you a fully clickable installer experience (checkboxes, radio buttons, live progress bar) using the same install engine underneath
-=======
->>>>>>> d5f507c302e93aa777e4c135d11de0bfa5b80eb6
+
 ✔ Works on Linux and Termux
 
 ---
