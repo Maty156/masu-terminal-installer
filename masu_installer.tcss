@@ -1,0 +1,229 @@
+/* MASU Terminal Installer — Textual stylesheet
+   Dark navy background, cyan/purple accents, rounded panels —
+   matching the project's existing cyber aesthetic. */
+
+Screen {
+    background: #0a0e1a;
+    color: #c8d3e8;
+}
+
+Header {
+    background: #11182c;
+    color: #7dd3fc;
+}
+
+Footer {
+    background: #11182c;
+}
+
+/* ─── Welcome screen ───────────────────────────────────── */
+#welcome-scroll {
+    align: center middle;
+    height: 1fr;
+    padding: 2 4;
+}
+
+#logo {
+    color: #22c55e;
+    text-style: bold;
+    text-align: center;
+    width: 100%;
+    margin-bottom: 0;
+}
+
+#logo-subtitle {
+    color: #7dd3fc;
+    text-align: center;
+    width: 100%;
+    margin-bottom: 1;
+}
+
+#welcome-card {
+    border: round #6366f1;
+    padding: 1 3;
+    width: 70;
+    margin-bottom: 2;
+    background: #11182c;
+}
+
+#welcome-title {
+    text-style: bold;
+    color: #a5b4fc;
+    margin-bottom: 1;
+}
+
+#welcome-text {
+    color: #c8d3e8;
+}
+
+#welcome-actions {
+    dock: bottom;
+    align: right middle;
+    height: 3;
+    padding: 0 2;
+    background: #0a0e1a;
+}
+
+#welcome-actions Button {
+    margin-left: 1;
+}
+
+/* ─── Shared screen chrome ─────────────────────────────── */
+#screen-title {
+    text-style: bold;
+    color: #a5b4fc;
+    margin: 1 2;
+}
+
+#screen-subtitle {
+    color: #8b96b3;
+    margin: 0 2 1 2;
+}
+
+.section-label {
+    text-style: bold;
+    color: #7dd3fc;
+    margin: 1 2 0 2;
+}
+
+/* ─── Packages screen ──────────────────────────────────── */
+#packages-scroll {
+    padding: 1 2;
+    height: 1fr;
+}
+
+#theme-radio {
+    border: round #334155;
+    margin: 0 2;
+    padding: 1;
+    background: #11182c;
+}
+
+#packages-scroll Checkbox {
+    margin: 0 2;
+}
+
+#packages-actions {
+    dock: bottom;
+    align: right middle;
+    height: 3;
+    padding: 0 2;
+    background: #0a0e1a;
+}
+
+#packages-actions Button {
+    margin-left: 1;
+}
+
+/* ─── Confirm screen ───────────────────────────────────── */
+#confirm-scroll {
+    padding: 2 4;
+}
+
+#confirm-summary {
+    border: round #6366f1;
+    background: #11182c;
+    padding: 1 2;
+    margin-bottom: 1;
+    color: #c8d3e8;
+}
+
+#confirm-note {
+    color: #8b96b3;
+    margin-bottom: 2;
+}
+
+#confirm-actions {
+    dock: bottom;
+    align: right middle;
+    height: 3;
+    padding: 0 2;
+    background: #0a0e1a;
+}
+
+#confirm-actions Button {
+    margin-left: 1;
+}
+
+/* ─── Install screen ───────────────────────────────────── */
+#install-body {
+    padding: 2 4;
+}
+
+#install-progress {
+    margin: 1 0 1 0;
+}
+
+#install-progress > .bar--bar {
+    color: #22c55e;
+}
+
+#install-progress > .bar--complete {
+    color: #22c55e;
+}
+
+#install-status {
+    margin-bottom: 1;
+    color: #c8d3e8;
+}
+
+#install-log-container {
+    border: round #334155;
+    background: #11182c;
+    height: 12;
+    padding: 1;
+}
+
+#install-log {
+    color: #8b96b3;
+}
+
+/* ─── Finish screen ────────────────────────────────────── */
+#finish-body {
+    padding: 2 4;
+}
+
+#finish-title-ok {
+    text-style: bold;
+    color: #22c55e;
+    border: round #22c55e;
+    padding: 1 2;
+    margin-bottom: 2;
+    width: auto;
+}
+
+#finish-title-fail {
+    text-style: bold;
+    color: #ef4444;
+    border: round #ef4444;
+    padding: 1 2;
+    margin-bottom: 2;
+    width: auto;
+}
+
+#finish-details {
+    color: #c8d3e8;
+    margin-bottom: 2;
+}
+
+#finish-actions {
+    align: right middle;
+    height: auto;
+}
+
+/* ─── Buttons (shared) ─────────────────────────────────── */
+Button {
+    min-width: 12;
+}
+
+Button.-primary {
+    background: #6366f1;
+}
+
+Button.-success {
+    background: #22c55e;
+}
+
+Button.-error {
+    background: #ef4444;
+}
