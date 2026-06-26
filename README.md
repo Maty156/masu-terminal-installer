@@ -2,7 +2,11 @@
 
 ![Linux](https://img.shields.io/badge/platform-Linux-green)
 ![Bash](https://img.shields.io/badge/language-Bash-blue)
+<<<<<<< HEAD
+![Version](https://img.shields.io/badge/version-v9.0-blue)
+=======
 ![Version](https://img.shields.io/badge/version-v8.6-blue)
+>>>>>>> d5f507c302e93aa777e4c135d11de0bfa5b80eb6
 ![Open Source](https://img.shields.io/badge/license-MIT-orange)
 ![Status](https://img.shields.io/badge/status-active-success)
 
@@ -27,6 +31,10 @@ The script automatically detects your operating system and installs everything r
 ✔ **Retry on Flaky Connections** — all clones retry automatically on network failure
 ✔ **Interactive fzf Menus** — arrow-key theme/option picker instead of typing numbers (falls back to plain prompts if fzf isn't installed yet)
 ✔ **Live Progress Bar** — full-screen whiptail gauge (with a detailed log file) tracks install progress with real percentages, falling back to plain step text if whiptail isn't available
+<<<<<<< HEAD
+✔ **Optional Mouse-Driven GUI** — `masu_installer.py` gives you a fully clickable installer experience (checkboxes, radio buttons, live progress bar) using the same install engine underneath
+=======
+>>>>>>> d5f507c302e93aa777e4c135d11de0bfa5b80eb6
 ✔ Works on Linux and Termux
 
 ---
@@ -78,9 +86,22 @@ Skip the Nerd Font download (cosmetic only) to speed things up:
 
 ---
 
+## Mouse-Driven GUI — masu_installer.py
+
+If you'd rather click through setup with your mouse instead of using `fzf`/`whiptail` menus, there's a separate Python frontend with a sidebar, checkboxes, and a real progress bar — closer to a graphical installer, fully usable in any terminal.
+
+```
+pip install -r requirements.txt
+python3 masu_installer.py
+```
+
+This needs Python 3.9+ and the `textual` package. It does **not** duplicate any install logic — it runs `install_core.sh` (the same engine `install.sh` uses) as a subprocess and streams its progress live into the UI. If `textual` or Python isn't available, just use `install.sh` instead; both produce an identical install.
+
+---
+
 # Theme Selection
 
-During install you will be asked to choose a theme:
+During install you will be asked to choose a theme (via `fzf` menu in `install.sh`, or a clickable radio button in `masu_installer.py`):
 
 | Option | Name | Description |
 |--------|------|-------------|
@@ -141,7 +162,11 @@ More screenshots from other systems will be added soon.
 ```
 masu-terminal-installer
 │
-├── install.sh
+├── install.sh              # Standalone bash frontend (fzf + whiptail)
+├── install_core.sh         # Shared install engine (used by both frontends)
+├── masu_installer.py       # Mouse-driven Textual GUI-style frontend
+├── masu_installer.tcss     # Stylesheet for the Textual frontend
+├── requirements.txt        # Python deps for masu_installer.py
 ├── README.md
 ├── configs
 │   ├── zsh
@@ -166,6 +191,14 @@ This project automates the entire setup process so anyone can install a professi
 
 # Changelog
 
+<<<<<<< HEAD
+### v9.0
+* **Major architectural change:** the install engine was split out of `install.sh` into a new shared `install_core.sh`, accepting `--theme=`, `--fastfetch=`, `--no-fonts`, and `--yes` flags instead of showing interactive pickers. `install.sh` now wraps this engine with its existing `fzf`/`whiptail` interactive UI — same experience as before, no change needed if you're happy with the terminal-only flow.
+* Added `masu_installer.py`, a new mouse-driven frontend built with [Textual](https://github.com/Textualize/textual): a sidebar-free but fully clickable wizard (Welcome → Theme/Extras → Confirm → Install → Finish) with real checkboxes, radio buttons, and a live progress bar, closer to a graphical installer while still running entirely in your terminal. It calls `install_core.sh` as a subprocess and streams its progress live — no install logic is duplicated between the two frontends.
+* Verified end-to-end with real install runs (not mocked) through both `install.sh` and `masu_installer.py`, confirming identical results from either frontend.
+
+=======
+>>>>>>> d5f507c302e93aa777e4c135d11de0bfa5b80eb6
 ### v8.6
 * **Critical fix:** the new full-screen TUI gauge could hang indefinitely partway through installation on any system. Root cause was a classic bash gotcha — `((CURRENT_STEP++))` evaluates to the *old* value when counting up from zero, which `set -e` treats as a failure and kills the script silently. A second related bug in the shell-detection step (`command -v zsh` returning non-zero when zsh isn't yet installed) had the same effect. Both fixed; verified with a full clean install run that now completes end-to-end.
 * The shell-setup step now explicitly handles "zsh isn't installed yet" instead of crashing — it warns and continues rather than failing the whole install.
