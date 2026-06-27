@@ -218,12 +218,58 @@ class InstallScreen(Screen):
     def on_mount(self) -> None:
         self.run_worker(self.run_install(), exclusive=True, thread=False)
 
+    def _sudo_warmup_needed(self) -> bool:
+        """True if install_core.sh will need sudo and credentials aren't
+        already cached. Mirrors install_core.sh's own check (skip when
+        root, on Termux, or sudo doesn't exist) so we only interrupt the
+        TUI when a password prompt would actually happen."""
+        if os.geteuid() == 0:
+            return False
+        if os.environ.get("PREFIX", "").find("com.termux") != -1:
+            return False
+        if shutil.which("sudo") is None:
+            return False
+        # `sudo -n true` succeeds silently if credentials are already
+        # cached, with no prompt and no terminal interaction needed.
+        already_cached = subprocess.run(
+            ["sudo", "-n", "true"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        ).returncode == 0
+        return not already_cached
+
     async def run_install(self) -> None:
         if not CORE_SCRIPT.exists():
             self.query_one("#install-status", Static).update(
                 f"[red]install_core.sh not found at {CORE_SCRIPT}[/red]"
             )
             return
+
+        # Textual takes over the whole screen, so a sudo password prompt
+        # from inside the subprocess would be invisible / unreachable.
+        # If credentials aren't already cached, suspend the TUI now —
+        # handing the real terminal back — so the prompt is genuinely
+        # visible and typeable, then resume once it's done.
+        if self._sudo_warmup_needed():
+            status_widget = self.query_one("#install-status", Static)
+            status_widget.update("[yellow]Sudo password needed — switching to your terminal...[/yellow]")
+            try:
+                with self.app.suspend():
+                    print("\nMASU Installer needs sudo for a few steps.")
+                    warmup = subprocess.run(["sudo", "-v"], timeout=120)
+                warmup_ok = warmup.returncode == 0
+            except subprocess.TimeoutExpired:
+                warmup_ok = False
+            except Exception:
+                # SuspendNotSupported or any other environment issue — fail
+                # safe rather than risk hanging with no visible terminal.
+                warmup_ok = False
+            if not warmup_ok:
+                status_widget.update(
+                    "[red]Could not get sudo access. Re-run from a real terminal and "
+                    "enter your password when prompted.[/red]"
+                )
+                self.app.push_screen(FinishScreen(success=False))
+                return
+            status_widget.update("[green]Sudo access confirmed.[/green] Starting install...")
 
         args = [
             "bash",
@@ -270,7 +316,12 @@ class InstallScreen(Screen):
 
             m = NEED_SUDO_RE.match(line)
             if m:
-                status_widget.update(f"[yellow]{m.group(1)} Check your terminal if prompted.[/yellow]")
+                # By this point credentials should already be cached from
+                # the warmup above, so install_core.sh's own sudo calls
+                # (now using -n) should succeed silently. This line is
+                # mostly informational at this stage.
+                log_lines.append(m.group(1))
+                log_widget.update("\n".join(log_lines[-12:]))
                 continue
 
             if line == "DONE":
@@ -293,7 +344,10 @@ class InstallScreen(Screen):
             *args,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            stdin=None,  # inherit the real terminal stdin so sudo can prompt if needed
+            stdin=subprocess.DEVNULL,  # sudo creds are already cached by the warmup above,
+                                       # so the subprocess should never need to read a password;
+                                       # DEVNULL makes that explicit instead of silently hanging
+                                       # if it somehow tried to prompt anyway.
         )
 
 
