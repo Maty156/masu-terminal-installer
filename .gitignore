@@ -1,0 +1,9 @@
+# Auto-created by install.sh — never commit this
+.masu-venv/
+
+# Python
+__pycache__/
+*.pyc
+
+# Install logs
+.masu-install.log
