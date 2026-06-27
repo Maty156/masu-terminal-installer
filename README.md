@@ -1,33 +1,33 @@
 # MASU Terminal Installer
 
 ![Linux](https://img.shields.io/badge/platform-Linux-green)
-![Bash](https://img.shields.io/badge/language-Bash-blue)
-![Version](https://img.shields.io/badge/version-v9.1-blue)
+![Python](https://img.shields.io/badge/language-Python%20%2B%20Bash-blue)
+![Version](https://img.shields.io/badge/version-v10.0-blue)
 ![Open Source](https://img.shields.io/badge/license-MIT-orange)
 ![Status](https://img.shields.io/badge/status-active-success)
 
-MASU Terminal Installer is a Bash script that automatically installs a modern **ZSH development terminal environment**.
+MASU Terminal Installer sets up a modern **ZSH development terminal environment** — ZSH, Oh My Zsh, Powerlevel10k, and a curated plugin set — through a mouse-driven, fully clickable installer that runs entirely in your terminal.
 
 It installs and configures a professional terminal setup used by developers, Linux enthusiasts, and cybersecurity learners.
 
-The script automatically detects your operating system and installs everything required.
+Run `./install.sh` and it takes care of everything: detecting your OS, setting up a private Python environment (no manual `venv`/`pip` steps needed), and launching the installer — checkboxes, radio buttons, a live progress bar, all clickable.
 
 ---
 
 # Features
 
+✔ **Mouse-Driven Installer** — checkboxes, radio buttons, and a live progress bar, fully clickable, no menus to type numbers into
+✔ **Zero Manual Setup** — `./install.sh` handles Python, the virtual environment, and dependencies automatically; no `pip install` or `venv` steps for you to run
 ✔ **3 Theme Options** — Minimal, Cyber, or P10K interactive wizard
 ✔ **Fastfetch Startup Choice** — opt in or out during install
 ✔ **Zero-Config Termux Support** — automatic mobile-optimized theme
 ✔ **Marker-based Configuration** — safe, re-runnable `.zshrc` updates
-✔ **Integrated FZF** — fuzzy history search and navigation
+✔ **Integrated FZF** — fuzzy history search and navigation in your finished shell
 ✔ **Custom Fastfetch** — lightweight, compact MASU-themed info
 ✔ **Per-distro Update Alias** — `update` command works correctly on every OS
 ✔ **Automatic Nerd Font Install** — MesloLGS NF installed for correct P10K icon rendering
 ✔ **Retry on Flaky Connections** — all clones retry automatically on network failure
-✔ **Interactive fzf Menus** — arrow-key theme/option picker instead of typing numbers (falls back to plain prompts if fzf isn't installed yet)
-✔ **Live Progress Bar** — full-screen whiptail gauge (with a detailed log file) tracks install progress with real percentages, falling back to plain step text if whiptail isn't available
-✔ **Optional Mouse-Driven GUI** — `masu_installer.py` gives you a fully clickable installer experience (checkboxes, radio buttons, live progress bar) using the same install engine underneath
+✔ **Visible Sudo Prompts** — the installer steps out of the way for a real, typeable password prompt whenever sudo is needed, instead of hiding it behind the UI
 ✔ Works on Linux and Termux
 
 ---
@@ -50,10 +50,6 @@ Other distributions may also work if they use compatible package managers.
 
 # Installation
 
-## Recommended — Clone and Run
-
-Cloning the repo gives you the full installation including p10k themes and fastfetch configs:
-
 ```
 git clone https://github.com/Maty156/masu-terminal-installer.git
 cd masu-terminal-installer
@@ -61,46 +57,36 @@ chmod +x install.sh
 ./install.sh
 ```
 
-## Quick Install — One Command
+That's it — `install.sh` handles everything else:
 
-```
-bash <(curl -s https://raw.githubusercontent.com/Maty156/masu-terminal-installer/main/install.sh)
-```
+1. Detects your OS
+2. Asks for your sudo password once, up front, in a normal visible prompt (only if needed)
+3. Installs Python if it's missing
+4. Creates a private virtual environment in `.masu-venv/` (hidden in the project folder — never touches your system Python, and is reused instantly on future runs)
+5. Installs `textual` into that environment
+6. Launches the mouse-driven installer
 
-> **Note:** The curl one-liner skips copying local config files (p10k themes, fastfetch configs) since there are no local files to copy. Theme 1 and 2 will fall back to defaults, and fastfetch will use system defaults. For the full experience use the clone method above.
+You will not need to run `pip install`, `python -m venv`, or activate anything yourself — `install.sh` is the only command you need.
 
-## On a slow or limited connection
+### About sudo
 
-Skip the Nerd Font download (cosmetic only) to speed things up:
+If sudo access is needed and isn't already cached, the installer will briefly hand control back to your real terminal so you can type your password normally — you'll see this happen, it's not a bug. Once confirmed, it returns to the regular interface automatically.
 
-```
-./install.sh --no-fonts
-```
+### On a slow or limited connection
 
----
-
-## Mouse-Driven GUI — masu_installer.py
-
-If you'd rather click through setup with your mouse instead of using `fzf`/`whiptail` menus, there's a separate Python frontend with a sidebar, checkboxes, and a real progress bar — closer to a graphical installer, fully usable in any terminal.
-
-```
-pip install -r requirements.txt
-python3 masu_installer.py
-```
-
-This needs Python 3.9+ and the `textual` package. It does **not** duplicate any install logic — it runs `install_core.sh` (the same engine `install.sh` uses) as a subprocess and streams its progress live into the UI. If `textual` or Python isn't available, just use `install.sh` instead; both produce an identical install.
+You can skip the Nerd Font step (purely cosmetic) from inside the installer by unchecking it on the setup screen — no flag needed.
 
 ---
 
 # Theme Selection
 
-During install you will be asked to choose a theme (via `fzf` menu in `install.sh`, or a clickable radio button in `masu_installer.py`):
+On the setup screen, pick a theme with a click (or arrow keys + Enter):
 
-| Option | Name | Description |
-|--------|------|-------------|
-| 1 | MASU Minimal | Fast, clean, mobile-optimized (default) |
-| 2 | MASU Cyber | Neon colors, icon-heavy |
-| 3 | P10K Wizard | Launches the interactive p10k setup on first ZSH session |
+| Name | Description |
+|------|-------------|
+| MASU Minimal | Fast, clean, mobile-optimized (default) |
+| MASU Cyber | Neon colors, icon-heavy |
+| P10K Wizard | Launches the interactive p10k setup on first ZSH session |
 
 ---
 
@@ -155,11 +141,12 @@ More screenshots from other systems will be added soon.
 ```
 masu-terminal-installer
 │
-├── install.sh              # Standalone bash frontend (fzf + whiptail)
-├── install_core.sh         # Shared install engine (used by both frontends)
-├── masu_installer.py       # Mouse-driven Textual GUI-style frontend
-├── masu_installer.tcss     # Stylesheet for the Textual frontend
-├── requirements.txt        # Python deps for masu_installer.py
+├── install.sh              # Launcher: sets up Python/venv, then runs masu_installer.py
+├── install_core.sh         # The real install engine (called by masu_installer.py)
+├── masu_installer.py       # Mouse-driven Textual installer UI
+├── masu_installer.tcss     # Stylesheet for the Textual UI
+├── requirements.txt        # Python deps (textual)
+├── .gitignore
 ├── README.md
 ├── configs
 │   ├── zsh
@@ -172,6 +159,8 @@ masu-terminal-installer
     └── arch.png
 ```
 
+`.masu-venv/` is also created here on first run (a private Python environment, gitignored, never committed).
+
 ---
 
 # Why This Project Exists
@@ -183,6 +172,12 @@ This project automates the entire setup process so anyone can install a professi
 ---
 
 # Changelog
+
+### v10.0
+* **`install.sh` is now a launcher, not the installer.** It no longer contains the old `fzf`/`whiptail` flow — instead it detects your OS, installs Python if needed, creates a private virtual environment (`.masu-venv/`, gitignored), installs `textual` into it, and hands off to `masu_installer.py`. The end result: `./install.sh` is still the only command anyone needs to run — no manual `pip install`, `python -m venv`, or activating anything.
+* Sudo is now warmed up once, up front, in `install.sh` itself — before Python or the TUI even start — so there's only ever one password prompt, asked plainly in a normal terminal.
+* Verified end-to-end on a completely clean slate (no system-wide `textual`, no existing venv): OS detection, Python setup, venv creation, package install, and handoff to the real TUI all confirmed working with real subprocess runs, not just code review.
+* The old `install.sh` (fzf/whiptail flow) has been retired. If you relied on that specific interactive flow, `install_core.sh` still accepts the same `--theme=`/`--fastfetch=`/`--no-fonts` flags directly if you'd rather script around it yourself.
 
 ### v9.1
 * **Critical fix:** `masu_installer.py` would get stuck at 0% with no way to type a sudo password — the prompt had nowhere visible to go since Textual takes over the whole screen. Fixed using Textual's `app.suspend()`: when sudo credentials aren't already cached, the TUI now genuinely hands control back to your real terminal first (with a real, typeable password prompt) before resuming and starting the actual install. Verified with a real pty and a real password typed in, not just code review.
