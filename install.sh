@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================
-# MASU Terminal Installer v9.0 - BlackArch Edition
+# MASU Terminal Installer v9.1 - BlackArch Edition
 # Author: Matyas Abraham
 # Supports: Arch, BlackArch, Ubuntu, Debian, Fedora,
 #           OpenSUSE, Kali, Parrot OS, Termux
@@ -86,7 +86,7 @@ gauge_start() {
     command -v whiptail &>/dev/null || return 0
     GAUGE_FIFO="$(mktemp -u)"
     mkfifo "$GAUGE_FIFO" || return 0
-    whiptail --backtitle "MASU Terminal Installer v9.0 — BlackArch Edition" \
+    whiptail --backtitle "MASU Terminal Installer v9.1 — BlackArch Edition" \
         --title " Installing " --gauge "Starting installation..." 10 70 0 \
         < "$GAUGE_FIFO" &
     GAUGE_PID=$!
@@ -192,7 +192,7 @@ cat << 'EOF'
 ██║ ╚═╝ ██║██║  ██║███████║╚██████╔╝
 ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝
 EOF
-echo -e "${CYAN}  Terminal Installer v9.0 — BlackArch Edition${RESET}"
+echo -e "${CYAN}  Terminal Installer v9.1 — BlackArch Edition${RESET}"
 echo -e "${MAGENTA}  By Matyas Abraham | MASU Cyber Learning Project${RESET}"
 echo ""
 
