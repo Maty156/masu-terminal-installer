@@ -2,11 +2,7 @@
 
 ![Linux](https://img.shields.io/badge/platform-Linux-green)
 ![Bash](https://img.shields.io/badge/language-Bash-blue)
-<<<<<<< HEAD
-![Version](https://img.shields.io/badge/version-v9.0-blue)
-=======
-![Version](https://img.shields.io/badge/version-v8.6-blue)
->>>>>>> d5f507c302e93aa777e4c135d11de0bfa5b80eb6
+![Version](https://img.shields.io/badge/version-v9.1-blue)
 ![Open Source](https://img.shields.io/badge/license-MIT-orange)
 ![Status](https://img.shields.io/badge/status-active-success)
 
@@ -31,9 +27,7 @@ The script automatically detects your operating system and installs everything r
 ✔ **Retry on Flaky Connections** — all clones retry automatically on network failure
 ✔ **Interactive fzf Menus** — arrow-key theme/option picker instead of typing numbers (falls back to plain prompts if fzf isn't installed yet)
 ✔ **Live Progress Bar** — full-screen whiptail gauge (with a detailed log file) tracks install progress with real percentages, falling back to plain step text if whiptail isn't available
-<<<<<<< HEAD
 ✔ **Optional Mouse-Driven GUI** — `masu_installer.py` gives you a fully clickable installer experience (checkboxes, radio buttons, live progress bar) using the same install engine underneath
-
 ✔ Works on Linux and Termux
 
 ---
@@ -190,14 +184,16 @@ This project automates the entire setup process so anyone can install a professi
 
 # Changelog
 
-<<<<<<< HEAD
+### v9.1
+* **Critical fix:** `masu_installer.py` would get stuck at 0% with no way to type a sudo password — the prompt had nowhere visible to go since Textual takes over the whole screen. Fixed using Textual's `app.suspend()`: when sudo credentials aren't already cached, the TUI now genuinely hands control back to your real terminal first (with a real, typeable password prompt) before resuming and starting the actual install. Verified with a real pty and a real password typed in, not just code review.
+* Added a hard timeout around the sudo warmup so it can never hang indefinitely in any environment, even ones where suspending the terminal isn't possible — it now fails safely with a clear message instead.
+* `install_core.sh`'s own internal sudo handling is now purely a safety check (`sudo -n`, non-interactive) rather than attempting its own prompt, since the calling frontend is now always responsible for warming up credentials with a real terminal visible first.
+
 ### v9.0
 * **Major architectural change:** the install engine was split out of `install.sh` into a new shared `install_core.sh`, accepting `--theme=`, `--fastfetch=`, `--no-fonts`, and `--yes` flags instead of showing interactive pickers. `install.sh` now wraps this engine with its existing `fzf`/`whiptail` interactive UI — same experience as before, no change needed if you're happy with the terminal-only flow.
 * Added `masu_installer.py`, a new mouse-driven frontend built with [Textual](https://github.com/Textualize/textual): a sidebar-free but fully clickable wizard (Welcome → Theme/Extras → Confirm → Install → Finish) with real checkboxes, radio buttons, and a live progress bar, closer to a graphical installer while still running entirely in your terminal. It calls `install_core.sh` as a subprocess and streams its progress live — no install logic is duplicated between the two frontends.
 * Verified end-to-end with real install runs (not mocked) through both `install.sh` and `masu_installer.py`, confirming identical results from either frontend.
 
-=======
->>>>>>> d5f507c302e93aa777e4c135d11de0bfa5b80eb6
 ### v8.6
 * **Critical fix:** the new full-screen TUI gauge could hang indefinitely partway through installation on any system. Root cause was a classic bash gotcha — `((CURRENT_STEP++))` evaluates to the *old* value when counting up from zero, which `set -e` treats as a failure and kills the script silently. A second related bug in the shell-detection step (`command -v zsh` returning non-zero when zsh isn't yet installed) had the same effect. Both fixed; verified with a full clean install run that now completes end-to-end.
 * The shell-setup step now explicitly handles "zsh isn't installed yet" instead of crashing — it warns and continues rather than failing the whole install.
