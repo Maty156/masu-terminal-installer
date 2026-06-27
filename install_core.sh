@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================
-# MASU Terminal Installer — Core Install Logic v9.0
+# MASU Terminal Installer — Core Install Logic v9.1
 # Author: Matyas Abraham
 # Supports: Arch, BlackArch, Ubuntu, Debian, Fedora,
 #           OpenSUSE, Kali, Parrot OS, Termux
@@ -152,17 +152,23 @@ if [[ $EUID -eq 0 ]] && [[ -z "${PREFIX:-}" ]] && [[ "$ASSUME_YES" != true ]]; t
 fi
 
 # ─── Warm up sudo ──────────────────────────────────────────
-# Package installs and chsh/usermod later need sudo. If credentials aren't
-# cached yet, a password prompt mid-run (especially under the Python TUI,
-# which captures this script's output) would be invisible. Skipped when
-# already root, on Termux, or sudo doesn't exist.
+# Package installs and chsh/usermod later need sudo. Credentials should
+# already be cached by now — install.sh warms them up interactively before
+# calling this script, and masu_installer.py does the same via a suspended
+# terminal session. This call is now just a safety check: -n makes it fail
+# fast and visibly if credentials somehow aren't cached, instead of hanging
+# on a password prompt that has nowhere safe to go (e.g. behind a TUI).
 if [[ $EUID -ne 0 ]] && [[ -z "${PREFIX:-}" ]] && command -v sudo &>/dev/null; then
-    echo "NEED_SUDO:This installer needs sudo for a few steps."
-    sudo -v || { echo "PROGRESS:-1:Could not get sudo access."; exit 1; }
+    if ! sudo -n true &>>"$INSTALL_LOG"; then
+        echo "PROGRESS:-1:Sudo credentials not available. Please run with sudo access cached."
+        warn "sudo -n failed — credentials were not cached by the calling frontend as expected"
+        exit 1
+    fi
+    echo "NEED_SUDO:Sudo access confirmed."
     # Keep credentials alive in the background for the rest of the run, since
     # a slow/retried install can easily outlast sudo's default cache timeout.
     # Killed automatically by the cleanup trap on exit.
-    ( while true; do sudo -v; sleep 60; done ) &>/dev/null &
+    ( while true; do sudo -n true; sleep 60; done ) &>/dev/null &
     SUDO_KEEPALIVE_PID=$!
 fi
 
